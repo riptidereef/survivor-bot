@@ -1,15 +1,20 @@
 import discord
 from discord.ext import commands
+from discord.ui import View, Button, Select, Modal, TextInput
+from discord import app_commands
 import logging
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
 import database
 
+# Setup
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
+guild_id = int(os.getenv('TEST_GUILD'))
 
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+handler = logging.FileHandler(filename='main.log', encoding='utf-8', mode='w')
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -18,12 +23,28 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_ready():
+    guild = discord.Object(id=guild_id)
+    try:
+        synced = await bot.tree.sync(guild=guild)
+        print(f"Synced {len(synced)} command(s) to guild {guild.id}")
+    except Exception as e:
+        print(f"Sync failed: {e}")
+        return
+    
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+
     database.setup_tables()
-    print(f"{bot.user.name} is ready to go.")
+    add_all_users()
+
+def add_all_users():
+    for guild in bot.guilds:
+        for member in guild.members:
+            if not member.bot:
+                database.add_user(str(member.id), member.name)
 
 @bot.event
 async def on_member_join(member):
-    database.add_user(str(member.id), str(member.name))
+    database.add_user(int(member.id), str(member.name))
 
     role = discord.utils.get(member.guild.roles, name="Viewer")
     if role:
@@ -32,32 +53,9 @@ async def on_member_join(member):
     else:
         print(f"Role 'Viewer' not found.")
 
-@bot.command(name='registeruser')
-async def register_user(ctx, discord_id: str):
-    user = ctx.guild.get_member(int(discord_id))
+@bot.tree.command(name="hello", description="Say hello to the user.")
+async def hello(interaction: discord.Interaction):
+    await interaction.response.send_message(f"Hello {interaction.user.name}!", ephemeral=True)
 
-    if user is not None:
-        database.add_user(str(user.id), str(user.name))
-        await ctx.send(f"User {user.name} ({user.id}) added to database.")
-
-@bot.command(name='addseason')
-async def add_season(ctx, name: str, number: int):
-    database.add_season(name, number)
-    await ctx.send(f"Season {number}: {name} added to database.")
-
-@bot.command(name='removeseason')
-async def remove_season(ctx, name: str, number: int):
-    database.remove_season(name, number)
-    await ctx.send(f"Season {number}: {name} removed from database.")
-
-@bot.command(name='addtribe')
-async def add_tribe(ctx, tribe_name: str, season_name: str):
-    database.add_tribe(tribe_name, season_name)
-    await ctx.send(f"{tribe_name} Tribe added from Season {season_name} added to database.")
-
-@bot.command(name='addplayer')
-async def add_player(ctx, discord_id, season_name):
-    database.add_player(discord_id, season_name)
-    await ctx.send(f"{discord_id} has been added to season {season_name}.")
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
