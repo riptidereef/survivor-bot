@@ -5,6 +5,7 @@ from discord import app_commands
 import logging
 import os
 from dotenv import load_dotenv
+import re
 
 import database
 
@@ -67,20 +68,68 @@ async def listseasons(interaction: discord.Interaction):
         await interaction.response.send_message("No seasons found in the database")
         return
     
-    season_list = "**Seasons in the database:**\n"
+    season_list = '**Seasons in the database:**\n'
     for season in seasons:
         season_number = season['number']
         season_name = season['name'].strip()
         season_status = season['status']
-        season_list += f"**{season_number}. {season_name}** (Status: {season_status})\n"
+        season_list += f"**{season_number}.** **{season_name}** (Status: {season_status})\n"
 
     await interaction.response.send_message(season_list)
 
+
 async def autocomplete_season(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     seasons = database.get_all_seasons()
+    choices = []
+
+    for season in seasons:
+        season_name = season['name'].strip()
+        season_number = season['number']
+        label = f"{season_number}. {season_name}"
+
+        if current.lower() in label.lower():
+            choices.append(app_commands.Choice(name=label, value=label))
+
+    return choices[-25:]
 
 @bot.tree.command(name="setseason", description="Set an existing season to active and deactivate all others.")
+@app_commands.describe(season="Select a season.")
+@app_commands.autocomplete(season=autocomplete_season)
 async def setseason(interaction: discord.Interaction, season: str):
-    pass
+    try:
+        number_part, name_part = season.split('.', 1)
+        season_number = int(number_part.strip())
+        season_name = name_part.strip()
+    except ValueError:
+        await interaction.response.send_message("Invalid season format. Please use autocomplete to select a valid one.", ephemeral=True)
+        return
+    
+    success = database.activate_season(season_name, season_number)
+
+    if success:
+        await interaction.response.send_message(f"Season **{season_number}. {season_name}** is now active.")
+    else:
+        await interaction.response.send_message("Could not find that season in the database.", ephemeral=True)
+
+def is_valid_hex_color(color: str) -> bool:
+    return re.fullmatch(r"#(?:[0-9a-fA-F]{3}){1,2}", color) is not None
+
+@bot.tree.command(name="addtribe", description="Add a tribe to the current season.")
+@app_commands.describe(tribe_name="Name of the new tribe", tribe_color="Hex color code (e.g. #FF0000)")
+async def addtribe(interaction: discord.Interaction, tribe_name: str, tribe_color: str):
+
+    if not is_valid_hex_color(tribe_color):
+        await interaction.response.send_message(f"Invalid color format. Please use a hex color code like `#FF0000`.", ephemeral=True)
+        return
+    
+    active_season = database.get_active_season()
+
+    if active_season is not None:
+        season_number = active_season['number']
+        season_name = active_season['name']
+        database.add_tribe(tribe_name, active_season['number'], tribe_color)
+        await interaction.response.send_message(f"Tribe **{tribe_name}** with color `{tribe_color}` added to season {season_name} (#{season_number}).")
+    else:
+        await interaction.response.send_message(f"Failed to add tribe. Make sure the season exists and the tribe name is valid.", ephemeral=True)
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)

@@ -47,6 +47,16 @@ def setup_tables():
         );
     ''')
 
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS tribes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL DEFAULT '#d3d3d3',
+            season INTEGER NOT NULL,
+            FOREIGN KEY(season) REFERENCES seasons(id)
+        );
+    ''')
+
     logger.info("Finished setting up tables.")
 
     conn.commit()
@@ -106,9 +116,60 @@ def activate_season(season_name: str, season_number: int) -> bool:
     conn = get_connection()
     c = conn.cursor()
 
-    command = '''
-        SELECT id, status FROM seasons
-        WHERE name = ? AND number = ?;
-    '''
-    c.execute(command, (season_name, season_number))
+    c.execute('SELECT id FROM seasons WHERE name = ? AND number = ?', (season_name, season_number))
     result = c.fetchone()
+    if not result:
+        conn.close()
+        return False
+    
+    c.execute('UPDATE seasons SET status = "inactive"')
+
+    c.execute('''
+        UPDATE seasons
+        SET status = "active"
+        WHERE name = ? AND number = ?
+    ''', (season_name, season_number))
+
+    conn.commit()
+    conn.close()
+    return True
+
+def get_active_season():
+    conn = get_connection()
+    c = conn.cursor()
+
+    c.execute('SELECT * FROM seasons WHERE status = "active" LIMIT 1')
+    row = c.fetchone()
+
+    conn.close()
+    return dict(row) if row else None
+
+def add_tribe(name: str, season_number: int, color: str = '#d3d3d3'):
+    conn = get_connection()
+    c = conn.cursor()
+
+    c.execute('SELECT id FROM seasons WHERE number = ?', (season_number,))
+    result = c.fetchone()
+
+    if not result:
+        logger.warning(f"Failed to add tribe '{name}': season #{season_number} does not exist.")
+        conn.close()
+        return False
+    
+    season_id = result['id']
+
+    command = '''
+        INSERT INTO tribes (name, color, season)
+        VALUES (?, ?, ?);
+    '''
+    c.execute(command, (name.strip(), color.strip(), season_id))
+
+    log_update(
+        c,
+        f"Added tribe '{name}' to season #{season_number} with color '{color}'.",
+        f"Failed to add tribe '{name}' to season #{season_number}."
+    )
+
+    conn.commit()
+    conn.close()
+    return True
