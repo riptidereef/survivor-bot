@@ -51,14 +51,13 @@ async def on_member_join(member):
     else:
         print(f"Role 'Viewer' not found.")
 
-@bot.tree.command(name="hello", description="Say hello to the user.")
-async def hello(interaction: discord.Interaction):
-    await interaction.response.send_message(f"Hello {interaction.user.name}!")
-
 @bot.tree.command(name="addseason", description="Register a new season to the database.")
 async def addseason(interaction: discord.Interaction, name: str, number: int):
-    database.add_season(name.strip(), number)
-    await interaction.response.send_message(f"Season **{name} (#{number})** added to the database.")
+    success = database.add_season(name.strip(), number)
+    if success:
+        await interaction.response.send_message(f"Season **{number}. {name}** added to the database.")
+    else:
+        await interaction.response.send_message(f"Failed to add season to database.")
 
 @bot.tree.command(name="listseasons", description="List all of the seasons in the database.")
 async def listseasons(interaction: discord.Interaction):
@@ -114,21 +113,27 @@ async def setseason(interaction: discord.Interaction, season: str):
 def is_valid_hex_color(color: str) -> bool:
     return re.fullmatch(r"#(?:[0-9a-fA-F]{3}){1,2}", color) is not None
 
-@bot.tree.command(name="addtribe", description="Add a tribe to the current season.")
-@app_commands.describe(tribe_name="Name of the new tribe", tribe_color="Hex color code (e.g. #FF0000)")
-async def addtribe(interaction: discord.Interaction, tribe_name: str, tribe_color: str):
+@bot.tree.command(name="addtribe", description="Add a tribe to a certain season.")
+@app_commands.describe(season="The season to add the tribe to.", tribe_name="Name of the new tribe", tribe_color="Hex color code (e.g. #FF0000)")
+@app_commands.autocomplete(season=autocomplete_season)
+async def addtribe(interaction: discord.Interaction, season: str, tribe_name: str, tribe_color: str):
+
+    try:
+        number_part, name_part = season.split('.', 1)
+        season_number = int(number_part.strip())
+        season_name = name_part.strip()
+    except ValueError:
+        await interaction.response.send_message("Invalid season format. Please use autocomplete to select a valid one.", ephemeral=True)
+        return
 
     if not is_valid_hex_color(tribe_color):
         await interaction.response.send_message(f"Invalid color format. Please use a hex color code like `#FF0000`.", ephemeral=True)
         return
     
-    active_season = database.get_active_season()
+    success = database.add_tribe(season_name, tribe_name, tribe_color)
 
-    if active_season is not None:
-        season_number = active_season['number']
-        season_name = active_season['name']
-        database.add_tribe(tribe_name, active_season['number'], tribe_color)
-        await interaction.response.send_message(f"Tribe **{tribe_name}** with color `{tribe_color}` added to season {season_name} (#{season_number}).")
+    if success:
+        await interaction.response.send_message(f"Tribe **{tribe_name}** with color `{tribe_color}` added to season {season_name}.")
     else:
         await interaction.response.send_message(f"Failed to add tribe. Make sure the season exists and the tribe name is valid.", ephemeral=True)
 
