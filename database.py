@@ -52,6 +52,21 @@ def setup_tables():
         );
     ''')
 
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS players (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            season_id INTEGER NOT NULL,
+            display_name TEXT NOT NULL,
+            role_color TEXT NOT NULL DEFAULT '#d3d3d3',
+            tribe_id INTEGER DEFAULT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (season_id) REFERENCES seasons(id),
+            FOREIGN KEY (tribe_id) REFERENCES tribes(id),
+            UNIQUE(display_name, season_id)
+        );
+    ''')
+
     logger.info("Finished setting up tables.")
 
     conn.commit()
@@ -159,4 +174,55 @@ def add_tribe(season_name: str, tribe_name: str, color: str = '#d3d3d3') -> bool
     success = c.rowcount > 0
     conn.commit()
     conn.close()
+    return success
+
+def add_player(discord_id: str, 
+               season_name: str, 
+               display_name: str,
+               role_color: str = '#b3b3b3',
+               tribe_name: str = None) -> bool:
+    
+    conn = get_connection()
+    c = conn.cursor()
+
+    c.execute('SELECT id FROM users WHERE discord_id = ?', (discord_id,))
+    result = c.fetchone()
+
+    if result is None:
+        conn.close()
+        return False
+    
+    user_id = result['id']
+
+    c.execute('SELECT id FROM seasons WHERE name = ?', (season_name,))
+    result = c.fetchone()
+
+    if result is None:
+        conn.close()
+        return False
+    
+    season_id = result['id']
+    
+    tribe_id = None
+    if tribe_name is not None:
+        c.execute('SELECT id FROM tribes WHERE name = ? AND season = ?', (tribe_name, season_id))
+        result = c.fetchone()
+
+        if result is None:
+            conn.close()
+            return False
+    
+        tribe_id = result['id']
+    
+    command = '''
+        INSERT OR IGNORE INTO players (user_id, season_id, display_name, role_color, tribe_id)
+        VALUES (?, ?, ?, ?, ?)
+    '''
+    c.execute(command, (user_id, season_id, display_name, role_color, tribe_id))
+
+    success = c.rowcount > 0
+
+    conn.commit()
+    conn.close()
+
     return success

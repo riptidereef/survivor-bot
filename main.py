@@ -137,4 +137,45 @@ async def addtribe(interaction: discord.Interaction, season: str, tribe_name: st
     else:
         await interaction.response.send_message(f"Failed to add tribe. Make sure the season exists and the tribe name is valid.", ephemeral=True)
 
+@bot.tree.command(name="addplayer", description="Add a new player to a season.")
+@app_commands.describe(
+    season="The season to add the player to.",
+    user="The user to register as a player.",
+    display_name="The player's in-game name.",
+    role_color="The color to assign this player (hex code, e.g. #00ffcc).",
+    tribe="Optional: Name of the tribe to assign the player to."
+)
+@app_commands.autocomplete(season=autocomplete_season)
+async def addplayer(interaction: discord.Interaction,
+                    season: str,
+                    user: discord.Member,
+                    display_name: str,
+                    role_color: str = '#d3d3d3',
+                    tribe: str = None):
+
+    try:
+        number_part, name_part = season.split('.', 1)
+        season_number = int(number_part.strip())
+        season_name = name_part.strip()
+    except ValueError:
+        await interaction.response.send_message("Invalid season format. Please use autocomplete to select a valid one.", ephemeral=True)
+        return
+    
+    if not is_valid_hex_color(role_color):
+        await interaction.response.send_message(f"Invalid color format. Please use a hex color code like `#FF0000`.", ephemeral=True)
+        return
+    
+    success = database.add_player(
+        discord_id=str(user.id),
+        season_name=season_name,
+        display_name=display_name.strip(),
+        role_color=role_color.strip(),
+        tribe_name=tribe.strip() if tribe else None
+    )
+
+    if success:
+        await interaction.response.send_message(f"Added **{display_name}** to **{season_name}**!")
+    else:
+        await interaction.response.send_message("Failed to add player.", ephemeral=True)
+
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
