@@ -226,3 +226,30 @@ def add_player(discord_id: str,
     conn.close()
 
     return success
+
+def get_players(season_name: str):
+    conn = get_connection()
+    c = conn.cursor()
+
+    command = '''
+        SELECT 
+            players.id AS player_id,
+            users.discord_id,
+            users.username,
+            players.display_name,
+            players.role_color,
+            tribes.name AS tribe_name,
+            tribes.color AS tribe_color
+        FROM players
+        JOIN users ON players.user_id = users.id
+        JOIN seasons ON players.season_id = seasons.id
+        LEFT JOIN tribes ON players.tribe_id = tribes.id
+        WHERE seasons.name = ?
+        ORDER BY players.display_name
+    '''
+
+    c.execute(command, (season_name,))
+    rows = c.fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]

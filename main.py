@@ -178,4 +178,39 @@ async def addplayer(interaction: discord.Interaction,
     else:
         await interaction.response.send_message("Failed to add player.", ephemeral=True)
 
+async def autocomplete_player(interaction: discord.Interaction, current: str):
+    active_season = database.get_active_season()
+
+    if not active_season:
+        return []
+    
+    players = database.get_players(active_season['name'])
+
+    choices = ["ALL"]
+    for player in players:
+        choices.append(player["display_name"])
+
+    filtered_choices = []
+    for name in choices:
+        if current.lower() in name.lower():
+            filtered_choices.append(app_commands.Choice(name=name, value=name))
+    
+    filtered_choices = filtered_choices[:25]
+
+    return filtered_choices
+
+@bot.tree.command(name="createsubmissions", description="Create submission channels for players in the current season.")
+@app_commands.describe(player="A specific player or type 'ALL' to create channels for all registered players.")
+@app_commands.autocomplete(player=autocomplete_player)
+async def createsubmissions(interaction: discord.Interaction, player: str):
+    
+    active_season = database.get_active_season()
+
+    if not active_season:
+        await interaction.followup.send("No active season set. Use `/setseason` first.", ephemeral=True)
+        return
+    
+
+
+
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
