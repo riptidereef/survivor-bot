@@ -140,8 +140,39 @@ async def addplayer(interaction: discord.Interaction, name: str, user: Member, t
     else:
         await interaction.response.send_message("An unknown error occurred while trying to add the player.")
 
-async def arrange_tribe_roles(guild: discord.Guild):
+@bot.tree.command(name="listtribes", description="List all tribes in the current season.")
+async def listtribes(interaction: discord.Interaction):
+    guild = interaction.guild
+
+    if not guild:
+        await interaction.response.send_message("This command must be run in a server.", ephemeral=True)
+        return
     
+    server_id = str(guild.id)
+
+    tribes = database.get_tribes(server_id)
+
+    if not tribes:
+        await interaction.response.send_message("No tribes found for this season.", ephemeral=True)
+        return
+    
+    embed = discord.Embed(
+        title=f"Tribes in {guild.name}",
+        color=discord.Color.blue()
+    )
+
+    for tribe in tribes:
+        role_name = tribe["name"] if tribe["iteration"] == 1 else f"{tribe['name']} {tribe['iteration']}.0"
+        color_code = tribe["color"]
+        rank = tribe["rank"]
+
+        embed.add_field(
+            name=f"{role_name}",
+            value=f"Color: `#{color_code}`\nRank: **{rank}**",
+            inline=False
+        )
+
+    await interaction.response.send_message(embed=embed)
 
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)

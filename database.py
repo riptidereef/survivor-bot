@@ -229,17 +229,38 @@ def add_player(display_name: str, discord_id: str, server_id: str, tribe_name: s
         conn.close()
         return -99
 
-def gat_tribes(server_id: str) -> list[dict]:
+def get_tribes(server_id: str) -> list[dict]:
     conn = get_connection()
     c = conn.cursor()
 
     try:
-        except Exception as e:
+        c.execute('SELECT id FROM seasons WHERE server_id = ?', (server_id,))
+        season_row = c.fetchone()
+
+        if season_row is None:
+            logger.warning(f"No season found for server_id {server_id}")
+            return []
+        
+        season_id = season_row['id']
+
+        command = '''
+            SELECT id, name, iteration, color, rank
+            FROM tribes
+            WHERE season = ?
+            ORDER BY rank DESC, iteration ASC, name ASC
+        '''
+        c.execute(command, (season_id,))
+
+        tribes = [dict(row) for row in c.fetchall()]
+        return tribes
+    
+    
+    except Exception as e:
         logger.error(f"Error fetching tribes for server {server_id}: {e}")
         return []
-
-    except Exception as e:
-
+    
+    finally:
+        conn.close()
 
     
         
