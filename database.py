@@ -15,62 +15,79 @@ logger.addHandler(file_handler)
 def get_connection():
     conn = sqlite3.connect('sharkvivor.db', check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
 def setup_tables():
     conn = get_connection()
     c = conn.cursor()
 
-    logger.info("Setting up tables.")
+    # Set up users table
+    try:
+        command = '''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                discord_id TEXT UNIQUE NOT NULL,
+                username TEXT
+            );
+        '''
+        c.execute(command)
+        logger.info("User table setup completed.")
+    except Exception as e:
+        logger.error(f"Error setting up users table: {e}")
 
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            discord_id TEXT UNIQUE NOT NULL,
-            username TEXT
-        );
-    ''')
+    # Set up seasons table
+    try:
+        command = '''
+            CREATE TABLE IF NOT EXISTS seasons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_id TEXT UNIQUE NOT NULL,
+                season_name TEXT NOT NULL
+            );
+        '''
+        c.execute(command)
+        logger.info("Seasons table setup completed.")
+    except Exception as e:
+        logger.error(f"Error setting up seasons table: {e}")
 
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS seasons (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            number INT UNIQUE NOT NULL,
-            episode INT DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'inactive'
-        );
-    ''')
+    # Set up tribes table
+    try:
+        command = '''
+            CREATE TABLE IF NOT EXISTS tribes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                iteration INTEGER DEFAULT 1,
+                season INTEGER NOT NULL,
+                color TEXT NOT NULL DEFAULT '#d3d3d3',
+                rank INT NOT NULL DEFAULT 1,
+                FOREIGN KEY(season) REFERENCES seasons(id),
+                UNIQUE(name, iteration, season)
+            );
+        '''
+        c.execute(command)
+        logger.info("Tribes table setup completed.")
+    except Exception as e:
+        logger.error(f"Error setting up tribes table: {e}")
 
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS tribes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            color TEXT NOT NULL DEFAULT '#d3d3d3',
-            season INTEGER NOT NULL,
-            FOREIGN KEY(season) REFERENCES seasons(id),
-            UNIQUE(name, season)
-        );
-    ''')
-
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS players (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            season_id INTEGER NOT NULL,
-            display_name TEXT NOT NULL,
-            role_color TEXT NOT NULL DEFAULT '#d3d3d3',
-            tribe_id INTEGER DEFAULT NULL,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (season_id) REFERENCES seasons(id),
-            FOREIGN KEY (tribe_id) REFERENCES tribes(id),
-            UNIQUE(display_name, season_id)
-        );
-    ''')
-
-    logger.info("Finished setting up tables.")
-
-    conn.commit()
-    conn.close()
+    # Set up players table
+    try:
+        command = '''
+            CREATE TABLE IF NOT EXISTS players (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                display_name TEXT NOT NULL,
+                user INTEGER NOT NULL,
+                season INTEGER NOT NULL,
+                tribe INTEGER DEFAULT NULL,
+                FOREIGN KEY (user) REFERENCES users(id),
+                FOREIGN KEY (season) REFERENCES seasons(id),
+                FOREIGN KEY (tribe) REFERENCES tribes(id),
+                UNIQUE (user, season)
+            );
+        '''
+        c.execute(command)
+        logger.info("Seasons table setup completed.")
+    except Exception as e:
+        logger.error(f"Error setting up seasons table: {e}")
 
 def add_user(discord_id: str, username: str) -> bool:
     conn = get_connection()
@@ -86,170 +103,143 @@ def add_user(discord_id: str, username: str) -> bool:
     c.execute(command, (discord_id, username))
 
     success = c.rowcount > 0
-    
-    conn.commit()
-    conn.close()
 
-    return success
-
-def add_season(season_name: str, season_number: int) -> bool:
-    conn = get_connection()
-    c = conn.cursor()
-
-    command = '''
-        INSERT OR IGNORE INTO seasons (name, number)
-        VALUES (?, ?);
-    '''
-    c.execute(command, (season_name, season_number))
-
-    success = c.rowcount > 0
-    
-    conn.commit()
-    conn.close()
-
-    return success
-
-def get_all_seasons():
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute('SELECT * FROM seasons ORDER BY number')
-    rows = c.fetchall()
-
-    conn.close()
-    return [dict(row) for row in rows]
-
-def activate_season(season_name: str, season_number: int) -> bool:
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute('SELECT id FROM seasons WHERE name = ? AND number = ?', (season_name, season_number))
-    result = c.fetchone()
-    if not result:
-        conn.close()
-        return False
-    
-    c.execute('UPDATE seasons SET status = "inactive"')
-
-    c.execute('''
-        UPDATE seasons
-        SET status = "active"
-        WHERE name = ? AND number = ?
-    ''', (season_name, season_number))
-
-    conn.commit()
-    conn.close()
-    return True
-
-def get_active_season():
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute('SELECT * FROM seasons WHERE status = "active" LIMIT 1')
-    row = c.fetchone()
-
-    conn.close()
-    return dict(row) if row else None
-
-def add_tribe(season_name: str, tribe_name: str, color: str = '#d3d3d3') -> bool:
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute('SELECT id FROM seasons WHERE name = ?', (season_name,))
-    result = c.fetchone()
-
-    if not result:
-        conn.close()
-        return False
-    
-    season_id = result['id']
-    command = '''
-        INSERT INTO tribes (name, color, season)
-        VALUES (?, ?, ?)
-        ON CONFLICT(name, season)
-        DO UPDATE SET color = excluded.color;
-    '''
-    c.execute(command, (tribe_name.strip(), color.strip(), season_id))
-
-    success = c.rowcount > 0
     conn.commit()
     conn.close()
     return success
 
-def add_player(discord_id: str, 
-               season_name: str, 
-               display_name: str,
-               role_color: str = '#b3b3b3',
-               tribe_name: str = None) -> bool:
-    
+def add_season(server_id: str, server_name: str) -> int:
     conn = get_connection()
     c = conn.cursor()
 
-    c.execute('SELECT id FROM users WHERE discord_id = ?', (discord_id,))
-    result = c.fetchone()
+    try:
+        command = '''
+            INSERT INTO seasons (server_id, season_name)
+            VALUES (?, ?)
+            ON CONFLICT(server_id)
+            DO UPDATE SET season_name = excluded.season_name
+            WHERE seasons.season_name IS NOT excluded.season_name;
+        '''
+        c.execute(command, (server_id, server_name))
 
-    if result is None:
+        conn.commit()
         conn.close()
-        return False
-    
-    user_id = result['id']
 
-    c.execute('SELECT id FROM seasons WHERE name = ?', (season_name,))
-    result = c.fetchone()
-
-    if result is None:
-        conn.close()
-        return False
+        if c.rowcount == 0:
+            return 0
+        else:
+            return 1
     
-    season_id = result['id']
-    
-    tribe_id = None
-    if tribe_name is not None:
-        c.execute('SELECT id FROM tribes WHERE name = ? AND season = ?', (tribe_name, season_id))
-        result = c.fetchone()
+    except Exception as e:
+        logger.error(f"Error adding season: {e}")
+        return -1
 
-        if result is None:
+def add_tribe(tribe_name: str, server_id: str, iteration: int = 1, color: str = '#d3d3d3', rank: int = 1) -> int:
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        command = 'SELECT id FROM seasons WHERE server_id = ?'
+        c.execute(command, (server_id,))
+        season_row = c.fetchone()
+
+        if season_row is None:
+            logger.error(f"Season with ID: {server_id} not found.")
             conn.close()
-            return False
+            return -1
     
-        tribe_id = result['id']
+        season_id = season_row['id']
+
+        command = '''
+            INSERT INTO tribes (name, iteration, season, color, rank)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(name, iteration, season) DO NOTHING
+        '''
+        c.execute(command, (tribe_name, iteration, season_id, color, rank))
+        conn.commit()
+        conn.close()
+
+        if c.rowcount == 0:
+            return 0
+        else:
+            return 1
     
-    command = '''
-        INSERT OR IGNORE INTO players (user_id, season_id, display_name, role_color, tribe_id)
-        VALUES (?, ?, ?, ?, ?)
-    '''
-    c.execute(command, (user_id, season_id, display_name, role_color, tribe_id))
+    except Exception as e:
+        logger.error(f"Error adding tribe: {e}")
+        conn.close()
+        return -1
 
-    success = c.rowcount > 0
-
-    conn.commit()
-    conn.close()
-
-    return success
-
-def get_players(season_name: str):
+def add_player(display_name: str, discord_id: str, server_id: str, tribe_name: str = None, tribe_iter: int = 1) -> int:
     conn = get_connection()
     c = conn.cursor()
 
-    command = '''
-        SELECT 
-            players.id AS player_id,
-            users.discord_id,
-            users.username,
-            players.display_name,
-            players.role_color,
-            tribes.name AS tribe_name,
-            tribes.color AS tribe_color
-        FROM players
-        JOIN users ON players.user_id = users.id
-        JOIN seasons ON players.season_id = seasons.id
-        LEFT JOIN tribes ON players.tribe_id = tribes.id
-        WHERE seasons.name = ?
-        ORDER BY players.display_name
-    '''
+    try:
+        # Find the target user (must already be added)
+        command = 'SELECT id FROM users WHERE discord_id = ?'
+        c.execute(command, (discord_id,))
+        result = c.fetchone()
+        if result is None:
+            logger.warning(f"User with discord_id {discord_id} not found.")
+            conn.close()
+            return -1
+        user_id = result[0]
 
-    c.execute(command, (season_name,))
-    rows = c.fetchall()
-    conn.close()
+        # Find target server
+        command = 'SELECT id FROM seasons WHERE server_id = ?'
+        c.execute(command, (server_id,))
+        result = c.fetchone()
+        if result is None:
+            logger.warning(f"Season with server_id {server_id} not found.")
+            conn.close()
+            return -2
+        season_id = result[0]
 
-    return [dict(row) for row in rows]
+        # Find target tribe (if provided, otherwise NULL)
+        tribe_id = None
+        if tribe_name is not None:
+            command = 'SELECT id FROM tribes WHERE name = ? AND iteration = ? AND season = ?'
+            c.execute(command, (tribe_name, tribe_iter, season_id))
+            result = c.fetchone()
+            if result is None:
+                logger.warning(f"Tribe {tribe_name} (iteration {tribe_iter}) not found in season {season_id}.")
+                conn.close()
+                return -3
+        
+            tribe_id = result[0]
+
+        command = '''
+            INSERT INTO players (display_name, user, season, tribe)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(user, season) DO NOTHING;
+        '''
+        c.execute(command, (display_name, user_id, season_id, tribe_id))
+        conn.commit()
+
+        if c.rowcount == 0:
+            logger.info(f"User {user_id} already exists in season {season_id}.")
+            conn.close()
+            return 0
+        
+        logger.info(f"User {user_id} added to season {season_id} with tribe {tribe_id}.")
+        conn.close()
+        return 1
+
+    except Exception as e:
+        logger.error(f"Error adding player: {e}")
+        conn.close()
+        return -99
+
+def gat_tribes(server_id: str) -> list[dict]:
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        except Exception as e:
+        logger.error(f"Error fetching tribes for server {server_id}: {e}")
+        return []
+
+    except Exception as e:
+
+
+    
+        
