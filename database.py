@@ -262,5 +262,41 @@ def get_tribes(server_id: str) -> list[dict]:
     finally:
         conn.close()
 
-    
+def get_players(server_id: str) -> list[dict]:
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        c.execute("SELECT id FROM seasons WHERE server_id = ?", (server_id,))
+        season_row = c.fetchone()
+
+        if season_row is None:
+            logger.warning(f"No season found for server_id {server_id}")
+            return []
         
+        season_id = season_row['id']
+
+        command = '''
+            SELECT p.id, 
+                   p.display_name, 
+                   u.discord_id, 
+                   u.username, 
+                   t.name as tribe_name,
+                   t.iteration as tribe_iteration
+            FROM players p
+            JOIN users u ON p.user = u.id
+            LEFT JOIN tribes t ON p.tribe = t.id
+            WHERE p.season = ?
+            ORDER BY p.display_name ASC, p.user ASC
+        '''
+        c.execute(command, (season_id,))
+
+        players = [dict(row) for row in c.fetchall()]
+        return players
+
+    except Exception as e:
+        logger.error(f"Error fetching players for server {server_id}: {e}")
+        return []
+
+    finally:
+        conn.close()
