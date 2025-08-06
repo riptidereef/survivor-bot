@@ -138,7 +138,7 @@ async def addplayer(interaction: discord.Interaction, name: str, user: Member, t
         # FIXME: SET COLOR
         await guild.create_role(name=name, mentionable=True, reason=f"Created player role for {name}.")
 
-        # await arrange_roles()
+        await arrange_roles(guild)
 
         await interaction.followup.send(f"**{name}** has been added to the current season.")
 
@@ -223,7 +223,19 @@ async def arrange_roles(guild: discord.Guild):
             # Role doesn't exist in the server yet
             pass
 
+
+    players = database.get_players(server_id)
     player_roles = []
+    for player in players:
+        player_name = player["display_name"]
+        role = role_map.get(player_name)
+        if role:
+            if role.position < bot_top_role.position:
+                player_roles.append(role)
+            else:
+                pass
+        else:
+            pass
 
 
     arranged_roles = []
@@ -295,10 +307,6 @@ async def listplayers(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="test", description="Test")
-async def test(interaction: discord.Interaction):
-    for role in sorted(interaction.guild.roles, key=lambda r: r.position, reverse=True):
-        print(f"{role.name}: Position {role.position}")
-    await interaction.response.send_message("Test.")
+
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
