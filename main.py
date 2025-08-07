@@ -135,8 +135,20 @@ async def addplayer(interaction: discord.Interaction, name: str, user: Member, t
     result = database.add_player(name, discord_id, server_id, tribe, iteration)
 
     if result == 1:
-        # FIXME: SET COLOR
-        await guild.create_role(name=name, mentionable=True, reason=f"Created player role for {name}.")
+        tribe_info = database.get_user_tribe(server_id, discord_id)
+        role_color = discord.Color.default()
+
+        if tribe_info and tribe_info.get("color"):
+            try:
+                color_value = int(tribe_info["color"], 16)
+                role_color = discord.Color(color_value)
+            except Exception as e:
+                pass
+
+        await guild.create_role(name=name, 
+                                color=role_color,
+                                mentionable=True,
+                                reason=f"Created player role for {name}.")
 
         await arrange_roles(guild)
 

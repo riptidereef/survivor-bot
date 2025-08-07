@@ -59,7 +59,7 @@ def setup_tables():
                 iteration INTEGER DEFAULT 1,
                 season INTEGER NOT NULL,
                 color TEXT NOT NULL DEFAULT '#d3d3d3',
-                rank INT NOT NULL DEFAULT 1,
+                order_id INT NOT NULL DEFAULT 1,
                 FOREIGN KEY(season) REFERENCES seasons(id),
                 UNIQUE(name, iteration, season)
             );
@@ -134,7 +134,7 @@ def add_season(server_id: str, server_name: str) -> int:
         logger.error(f"Error adding season: {e}")
         return -1
 
-def add_tribe(tribe_name: str, server_id: str, iteration: int = 1, color: str = '#d3d3d3', rank: int = 1) -> int:
+def add_tribe(tribe_name: str, server_id: str, iteration: int = 1, color: str = '#d3d3d3', order_id: int = 1) -> int:
     conn = get_connection()
     c = conn.cursor()
 
@@ -151,11 +151,11 @@ def add_tribe(tribe_name: str, server_id: str, iteration: int = 1, color: str = 
         season_id = season_row['id']
 
         command = '''
-            INSERT INTO tribes (name, iteration, season, color, rank)
+            INSERT INTO tribes (name, iteration, season, color, order_id)
             VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(name, iteration, season) DO NOTHING
         '''
-        c.execute(command, (tribe_name, iteration, season_id, color, rank))
+        c.execute(command, (tribe_name, iteration, season_id, color, order_id))
         conn.commit()
         conn.close()
 
@@ -244,10 +244,10 @@ def get_tribes(server_id: str) -> list[dict]:
         season_id = season_row['id']
 
         command = '''
-            SELECT id, name, iteration, color, rank
+            SELECT id, name, iteration, color, order_id
             FROM tribes
             WHERE season = ?
-            ORDER BY rank DESC, iteration ASC, name ASC
+            ORDER BY order_id DESC, iteration ASC, name ASC
         '''
         c.execute(command, (season_id,))
 
@@ -297,6 +297,47 @@ def get_players(server_id: str) -> list[dict]:
     except Exception as e:
         logger.error(f"Error fetching players for server {server_id}: {e}")
         return []
+
+    finally:
+        conn.close()
+
+def get_user_tribe(server_id: str, discord_id: str) -> dict:
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        c.execute("SELECT id FROM seasons WHERE server_id = ?", (server_id,))
+        season_row = c.fetchone()
+        if season_row is None:
+            logger.warning(f"No season found for server_id {server_id}")
+            return None
+        season_id = season_row['id']
+        
+        c.execute("SELECT id FROM users WHERE discord_id = ?", (discord_id,))
+        user_row = c.fetchone()
+        if user_row is None:
+            logger.warning(f"No user found for discord_id {discord_id}")
+            return None
+        user_id = user_row['id']
+        
+        command = '''
+            SELECT t.id, t.name, t.iteration, t.color, t.order_id
+            FROM players p
+            LEFT JOIN tribes t ON p.tribe = t.id
+            WHERE p.season = ? AND p.user = ?
+        '''
+        c.execute(command, (season_id, user_id))
+        tribe_row = c.fetchone()
+
+        if tribe_row is None:
+            logger.info(f"Player {discord_id} is not currently in a tribe for season {season_id}")
+            return None
+
+        return dict(tribe_row)
+
+    except Exception as e:
+        logger.error(f"Error fetching player tribe: {e}")
+        return None
 
     finally:
         conn.close()
