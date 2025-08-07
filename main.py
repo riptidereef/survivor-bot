@@ -69,8 +69,8 @@ async def registerseason(interaction: discord.Interaction):
 @app_commands.describe(name="The name of the tribe.", 
                        iteration="The iteration of the tribe (i.e. for swaps, default 1).", 
                        color="Hex color code for the tribe (e.g. ff0000).",
-                       rank="The precedence in which the tribe occurs (i.e. starting tribe, swapped, merge, etc).")
-async def addtribe(interaction: discord.Interaction, name: str, iteration: int = 1, color: str = 'd3d3d3', rank: int = 1):
+                       order_id="The precedence in which the tribe occurs (i.e. starting tribe, swapped, merge, etc).")
+async def addtribe(interaction: discord.Interaction, name: str, iteration: int = 1, color: str = 'd3d3d3', order_id: int = 1):
     guild = interaction.guild
 
     if not guild:
@@ -85,7 +85,7 @@ async def addtribe(interaction: discord.Interaction, name: str, iteration: int =
     
     server_id = str(guild.id)
 
-    result = database.add_tribe(name, server_id, iteration, color, rank)
+    result = database.add_tribe(name, server_id, iteration, color, order_id)
 
     if result == 1:
 
@@ -190,11 +190,11 @@ async def listtribes(interaction: discord.Interaction):
     for tribe in tribes:
         role_name = tribe["name"] if tribe["iteration"] == 1 else f"{tribe['name']} {tribe['iteration']}.0"
         color_code = tribe["color"]
-        rank = tribe["rank"]
+        order_id = tribe["order_id"]
 
         embed.add_field(
             name=f"{role_name}",
-            value=f"Color: `#{color_code}`\nRank: **{rank}**",
+            value=f"Color: `#{color_code}`\nOrder: **{order_id}**",
             inline=False
         )
 
@@ -216,7 +216,7 @@ async def arrange_roles(guild: discord.Guild):
     all_roles = await guild.fetch_roles()
     role_map = {role.name: role for role in all_roles}
 
-    # List of tribe roles, already sorted by rank
+    # List of tribe roles, already sorted by order_id
     tribe_roles = []
     for tribe in tribes:
         if tribe["iteration"] == 1:
@@ -319,6 +319,39 @@ async def listplayers(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="revealplayer", description="Reveal a castaway on the season and remove viewer role and assign player roles.")
+@app_commands.describe(user="The user to reveal as a castaway.")
+async def revealplayer(interaction: discord.Interaction, user: discord.Member):
+    guild = interaction.guild
+
+    if not guild:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
+    
+    await interaction.response.defer(ephemeral=True)
+
+    viewer_role = discord.utils.get(guild.roles, name="Viewer")
+    trusted_viewer_role = discord.utils.get(guild.roles, name="Trusted Viewer")
+    castaway_role = discord.utils.get(guild.roles, name="Castaway")
+
+    try:
+        roles_to_remove = []
+        if viewer_role and viewer_role in user.roles:
+            roles_to_remove.append(viewer_role)
+        if trusted_viewer_role and trusted_viewer_role in user.roles:
+            roles_to_remove.append(trusted_viewer_role)
+        
+        if roles_to_remove is not None:
+            await user.remove_roles(*roles_to_remove)
+
+        if castaway_role is not None and castaway_role not in user.roles:
+            await user.add_roles(castaway_role)
+
+        await interaction.followup.send(f"Successfully revealed player **{user.name}**.")
+
+
+    except Exception as e:
+        print(f"Failed to reveal castaway: {e}")
 
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)

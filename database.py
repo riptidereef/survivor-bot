@@ -58,7 +58,7 @@ def setup_tables():
                 name TEXT NOT NULL,
                 iteration INTEGER DEFAULT 1,
                 season INTEGER NOT NULL,
-                color TEXT NOT NULL DEFAULT '#d3d3d3',
+                color TEXT NOT NULL DEFAULT 'd3d3d3',
                 order_id INT NOT NULL DEFAULT 1,
                 FOREIGN KEY(season) REFERENCES seasons(id),
                 UNIQUE(name, iteration, season)
