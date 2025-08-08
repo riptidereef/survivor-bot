@@ -6,6 +6,7 @@ import logging
 import os
 from dotenv import load_dotenv
 import re
+import random
 
 import database
 
@@ -328,11 +329,26 @@ async def revealplayer(interaction: discord.Interaction, user: discord.Member):
         await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
         return
     
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer()
+
+    season_players = database.get_players(str(guild.id))
+    matched_player = next((p for p in season_players if str(user.id) == p['discord_id']), None)
+
+    if not matched_player:
+        await interaction.followup.send("This user is not a player in the current season.")
+        return
 
     viewer_role = discord.utils.get(guild.roles, name="Viewer")
     trusted_viewer_role = discord.utils.get(guild.roles, name="Trusted Viewer")
     castaway_role = discord.utils.get(guild.roles, name="Castaway")
+    player_role = discord.utils.get(guild.roles, name=matched_player['display_name'])
+
+    if matched_player["tribe_iteration"] == 1:
+        tribe_name = matched_player["tribe_name"]
+    else:
+        tribe_name = f"{matched_player["tribe_name"]} {matched_player["tribe_iteration"]}.0" 
+
+    tribe_role = discord.utils.get(guild.roles, name=tribe_name)
 
     try:
         roles_to_remove = []
@@ -344,14 +360,22 @@ async def revealplayer(interaction: discord.Interaction, user: discord.Member):
         if roles_to_remove is not None:
             await user.remove_roles(*roles_to_remove)
 
+        roles_to_add = []
         if castaway_role is not None and castaway_role not in user.roles:
-            await user.add_roles(castaway_role)
+            roles_to_add.append(castaway_role)
 
-        await interaction.followup.send(f"Successfully revealed player **{user.name}**.")
+        if player_role is not None and player_role not in user.roles:
+            roles_to_add.append(player_role)
+        
+        if tribe_role is not None and tribe_role not in user.roles:
+            roles_to_add.append(tribe_role)
 
+        if roles_to_add is not None:
+            await user.add_roles(*roles_to_add)
+
+        await interaction.followup.send(f"Successfully revealed player **{matched_player['display_name']}**.")
 
     except Exception as e:
         print(f"Failed to reveal castaway: {e}")
-
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
