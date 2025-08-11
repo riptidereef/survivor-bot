@@ -81,7 +81,8 @@ def setup_tables():
                 FOREIGN KEY (user) REFERENCES users(id),
                 FOREIGN KEY (season) REFERENCES seasons(id),
                 FOREIGN KEY (tribe) REFERENCES tribes(id),
-                UNIQUE (user, season)
+                UNIQUE (user, season),
+                UNIQUE (display_name, season)
             );
         '''
         c.execute(command)
@@ -208,15 +209,14 @@ def add_player(display_name: str, discord_id: str, server_id: str, tribe_name: s
             tribe_id = result[0]
 
         command = '''
-            INSERT INTO players (display_name, user, season, tribe)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(user, season) DO NOTHING;
+            INSERT OR IGNORE INTO players (display_name, user, season, tribe)
+            VALUES (?, ?, ?, ?);
         '''
         c.execute(command, (display_name, user_id, season_id, tribe_id))
         conn.commit()
 
         if c.rowcount == 0:
-            logger.info(f"User {user_id} already exists in season {season_id}.")
+            logger.info(f"User: {user_id} name: {display_name} already exists in season {season_id}.")
             conn.close()
             return 0
         
@@ -301,7 +301,59 @@ def get_players(server_id: str) -> list[dict]:
     finally:
         conn.close()
 
-def get_user_tribe(server_id: str, discord_id: str) -> dict:
+def get_player_names(server_id: str) -> list[str]:
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        c.execute("SELECT id FROM seasons WHERE server_id = ?", (server_id,))
+        season_row = c.fetchone()
+
+        if season_row is None:
+            logger.warning(f"No season found for server_id {server_id}")
+            return []
+        
+        season_id = season_row['id']
+
+        c.execute('SELECT display_name FROM players WHERE season = ?', (season_id,))
+        result = c.fetchall()
+
+        return [row["display_name"] for row in result]
+
+    except Exception as e:
+        logger.error(f"Error fetching player names for server_id {server_id}: {e}")
+        return []
+
+    finally:
+        conn.close()
+
+def get_tribe_names(server_id: str) -> list[str]:
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        c.execute("SELECT id FROM seasons WHERE server_id = ?", (server_id,))
+        season_row = c.fetchone()
+
+        if season_row is None:
+            logger.warning(f"No season found for server_id {server_id}")
+            return []
+        
+        season_id = season_row['id']
+
+        c.execute('SELECT name FROM tribes WHERE season = ?', (season_id,))
+        result = c.fetchall()
+
+        return [row["name"] for row in result]
+
+    except Exception as e:
+        logger.error(f"Error fetching tribe names for server_id {server_id}: {e}")
+        return []
+
+    finally:
+        conn.close()
+
+def get_player_tribe(server_id: str, name: str) -> dict:
     conn = get_connection()
     c = conn.cursor()
 
@@ -313,24 +365,17 @@ def get_user_tribe(server_id: str, discord_id: str) -> dict:
             return None
         season_id = season_row['id']
         
-        c.execute("SELECT id FROM users WHERE discord_id = ?", (discord_id,))
-        user_row = c.fetchone()
-        if user_row is None:
-            logger.warning(f"No user found for discord_id {discord_id}")
-            return None
-        user_id = user_row['id']
-        
         command = '''
             SELECT t.id, t.name, t.iteration, t.color, t.order_id
             FROM players p
             LEFT JOIN tribes t ON p.tribe = t.id
-            WHERE p.season = ? AND p.user = ?
+            WHERE p.season = ? AND p.display_name = ?
         '''
-        c.execute(command, (season_id, user_id))
+        c.execute(command, (season_id, name))
         tribe_row = c.fetchone()
 
         if tribe_row is None:
-            logger.info(f"Player {discord_id} is not currently in a tribe for season {season_id}")
+            logger.info(f"Player {name} is not currently in a tribe for season {season_id}")
             return None
 
         return dict(tribe_row)
@@ -341,3 +386,4 @@ def get_user_tribe(server_id: str, discord_id: str) -> dict:
 
     finally:
         conn.close()
+

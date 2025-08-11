@@ -6,8 +6,6 @@ import logging
 import os
 from dotenv import load_dotenv
 import re
-import random
-
 import database
 
 load_dotenv()
@@ -66,6 +64,35 @@ async def registerseason(interaction: discord.Interaction):
     else:
         await interaction.response.send_message(f"Failed to register season.")
 
+async def autocomplete_players(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    guild = interaction.guild
+    if not guild:
+        return []
+    
+    player_names = database.get_player_names(str(guild.id))
+
+    choices = [app_commands.Choice(name=p, value=p) for p in player_names if current.lower() in p.lower()]
+
+    return choices[:25]
+
+async def autocomplete_tribes(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    guild = interaction.guild
+    if not guild:
+        return []
+    
+    tribe_names = database.get_tribe_names(str(guild.id))
+
+    seen = set()
+    unique_names = []
+    for name in tribe_names:
+        if name not in seen:
+            seen.add(name)
+            unique_names.append(name)
+
+    choices = [app_commands.Choice(name=p, value=p) for p in unique_names if current.lower() in p.lower()]
+
+    return choices[:25]
+
 @bot.tree.command(name="addtribe", description="Add a new tribe to the current season.")
 @app_commands.describe(name="The name of the tribe.", 
                        iteration="The iteration of the tribe (i.e. for swaps, default 1).", 
@@ -120,6 +147,7 @@ async def addtribe(interaction: discord.Interaction, name: str, iteration: int =
     tribe="Optional tribe to assign the player to.",
     iteration="Optional season iteration (default is 1)."
 )
+@app_commands.autocomplete(tribe=autocomplete_tribes)
 async def addplayer(interaction: discord.Interaction, name: str, user: Member, tribe: str = None, iteration: int = 1):
 
     guild = interaction.guild
@@ -128,15 +156,21 @@ async def addplayer(interaction: discord.Interaction, name: str, user: Member, t
         await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
         return
     
-    await interaction.response.defer()
 
     discord_id = user.id
     server_id = interaction.guild.id
 
+    player_names = database.get_player_names(str(server_id))
+    if name in player_names:
+        await interaction.response.send_message(f"Player **{name}** already exists in the current season.")
+        return
+
+    await interaction.response.defer()
+    
     result = database.add_player(name, discord_id, server_id, tribe, iteration)
 
     if result == 1:
-        tribe_info = database.get_user_tribe(server_id, discord_id)
+        tribe_info = database.get_player_tribe(server_id, name)
         role_color = discord.Color.default()
 
         if tribe_info and tribe_info.get("color"):
@@ -166,7 +200,6 @@ async def addplayer(interaction: discord.Interaction, name: str, user: Member, t
     else:
         await interaction.followup.send("An unknown error occurred while trying to add the player.")
 
-# FIXME: MAKE CUSTOM
 @bot.tree.command(name="listtribes", description="List all tribes in the current season.")
 async def listtribes(interaction: discord.Interaction):
     guild = interaction.guild
@@ -209,10 +242,6 @@ async def arrange_roles(guild: discord.Guild):
 
     server_id = str(guild.id)
     tribes = database.get_tribes(server_id)
-
-    if not tribes:
-        print("No tribes found.")
-        return
 
     all_roles = await guild.fetch_roles()
     role_map = {role.name: role for role in all_roles}
@@ -274,7 +303,6 @@ async def arrange_roles(guild: discord.Guild):
         except Exception as e:
             print(f"Failed to move role '{role.name}': {e}")
 
-# FIXME: MAKE CUSTOM
 @bot.tree.command(name="listplayers", description="List all players in the current season.")
 async def listplayers(interaction: discord.Interaction):
     guild = interaction.guild
@@ -321,18 +349,24 @@ async def listplayers(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="revealplayer", description="Reveal a castaway on the season and remove viewer role and assign player roles.")
-@app_commands.describe(user="The user to reveal as a castaway.")
-async def revealplayer(interaction: discord.Interaction, user: discord.Member):
+@app_commands.describe(name="The player to reveal as a castaway.")
+@app_commands.autocomplete(name=autocomplete_players)
+async def revealplayer(interaction: discord.Interaction, name: str):
     guild = interaction.guild
 
     if not guild:
         await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
         return
     
+    player_names = database.get_player_names(str(guild.id))
+    if name not in player_names:
+        await interaction.response.send_message(f"Player **{name}** does not exist in the current season.")
+        return
+    
     await interaction.response.defer()
 
     season_players = database.get_players(str(guild.id))
-    matched_player = next((p for p in season_players if str(user.id) == p['discord_id']), None)
+    matched_player = next((p for p in season_players if name == p['display_name']), None)
 
     if not matched_player:
         await interaction.followup.send("This user is not a player in the current season.")
@@ -348,7 +382,12 @@ async def revealplayer(interaction: discord.Interaction, user: discord.Member):
     else:
         tribe_name = f"{matched_player["tribe_name"]} {matched_player["tribe_iteration"]}.0" 
 
-    tribe_role = discord.utils.get(guild.roles, name=tribe_name)
+    if tribe_name:
+        tribe_role = discord.utils.get(guild.roles, name=tribe_name)
+    else:
+        tribe_role = None
+
+    user = await guild.fetch_member(matched_player['discord_id'])
 
     try:
         roles_to_remove = []
