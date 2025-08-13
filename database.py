@@ -27,7 +27,7 @@ def setup_tables():
         command = '''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                discord_id TEXT UNIQUE NOT NULL,
+                discord_id INT UNIQUE NOT NULL,
                 username TEXT
             );
         '''
@@ -41,7 +41,7 @@ def setup_tables():
         command = '''
             CREATE TABLE IF NOT EXISTS seasons (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                server_id TEXT UNIQUE NOT NULL,
+                server_id INT UNIQUE NOT NULL,
                 season_name TEXT NOT NULL
             );
         '''
@@ -90,7 +90,7 @@ def setup_tables():
     except Exception as e:
         logger.error(f"Error setting up seasons table: {e}")
 
-def add_user(discord_id: str, username: str) -> bool:
+def add_user(discord_id: int, username: str) -> bool:
     conn = get_connection()
     c = conn.cursor()
 
@@ -109,7 +109,7 @@ def add_user(discord_id: str, username: str) -> bool:
     conn.close()
     return success
 
-def add_season(server_id: str, server_name: str) -> int:
+def add_season(server_id: int, server_name: str) -> int:
     conn = get_connection()
     c = conn.cursor()
 
@@ -135,7 +135,7 @@ def add_season(server_id: str, server_name: str) -> int:
         logger.error(f"Error adding season: {e}")
         return -1
 
-def add_tribe(tribe_name: str, server_id: str, iteration: int = 1, color: str = '#d3d3d3', order_id: int = 1) -> int:
+def add_tribe(tribe_name: str, server_id: int, iteration: int = 1, color: str = '#d3d3d3', order_id: int = 1) -> int:
     conn = get_connection()
     c = conn.cursor()
 
@@ -170,7 +170,7 @@ def add_tribe(tribe_name: str, server_id: str, iteration: int = 1, color: str = 
         conn.close()
         return -1
 
-def add_player(display_name: str, discord_id: str, server_id: str, tribe_name: str = None, tribe_iter: int = 1) -> int:
+def add_player(display_name: str, discord_id: int, server_id: int, tribe_name: str = None, tribe_iter: int = 1) -> int:
     conn = get_connection()
     c = conn.cursor()
 
@@ -229,7 +229,7 @@ def add_player(display_name: str, discord_id: str, server_id: str, tribe_name: s
         conn.close()
         return -99
 
-def get_tribes(server_id: str) -> list[dict]:
+def get_tribes(server_id: int) -> list[dict]:
     conn = get_connection()
     c = conn.cursor()
 
@@ -262,7 +262,7 @@ def get_tribes(server_id: str) -> list[dict]:
     finally:
         conn.close()
 
-def get_players(server_id: str) -> list[dict]:
+def get_players(server_id: int) -> list[dict]:
     conn = get_connection()
     c = conn.cursor()
 
@@ -301,7 +301,7 @@ def get_players(server_id: str) -> list[dict]:
     finally:
         conn.close()
 
-def get_player_names(server_id: str) -> list[str]:
+def get_player_names(server_id: int) -> list[str]:
     conn = get_connection()
     c = conn.cursor()
 
@@ -327,7 +327,7 @@ def get_player_names(server_id: str) -> list[str]:
     finally:
         conn.close()
 
-def get_tribe_names(server_id: str) -> list[str]:
+def get_tribe_names(server_id: int) -> list[str]:
     conn = get_connection()
     c = conn.cursor()
 
@@ -353,7 +353,7 @@ def get_tribe_names(server_id: str) -> list[str]:
     finally:
         conn.close()
 
-def get_player_tribe(server_id: str, name: str) -> dict:
+def get_player_tribe(server_id: int, name: str) -> dict:
     conn = get_connection()
     c = conn.cursor()
 

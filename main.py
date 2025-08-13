@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 import re
 import database
+from server_structure import *
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -18,6 +19,35 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
+
+async def autocomplete_players(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    guild = interaction.guild
+    if not guild:
+        return []
+    
+    player_names = database.get_player_names(guild.id)
+
+    choices = [app_commands.Choice(name=p, value=p) for p in player_names if current.lower() in p.lower()]
+
+    return choices[:25]
+
+async def autocomplete_tribes(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    guild = interaction.guild
+    if not guild:
+        return []
+    
+    tribe_names = database.get_tribe_names(guild.id)
+
+    seen = set()
+    unique_names = []
+    for name in tribe_names:
+        if name not in seen:
+            seen.add(name)
+            unique_names.append(name)
+
+    choices = [app_commands.Choice(name=p, value=p) for p in unique_names if current.lower() in p.lower()]
+
+    return choices[:25]
 
 @bot.event
 async def on_ready():
@@ -52,7 +82,7 @@ async def registerseason(interaction: discord.Interaction):
         await interaction.response.send_message("This command must be run in a server.", ephemeral=True)
         return
     
-    guild_id = str(guild.id)
+    guild_id = guild.id
     guild_name = guild.name
 
     result = database.add_season(guild_id, guild_name)
@@ -63,35 +93,6 @@ async def registerseason(interaction: discord.Interaction):
         await interaction.response.send_message(f"**{guild_name}** is already registered.")
     else:
         await interaction.response.send_message(f"Failed to register season.")
-
-async def autocomplete_players(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    guild = interaction.guild
-    if not guild:
-        return []
-    
-    player_names = database.get_player_names(str(guild.id))
-
-    choices = [app_commands.Choice(name=p, value=p) for p in player_names if current.lower() in p.lower()]
-
-    return choices[:25]
-
-async def autocomplete_tribes(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    guild = interaction.guild
-    if not guild:
-        return []
-    
-    tribe_names = database.get_tribe_names(str(guild.id))
-
-    seen = set()
-    unique_names = []
-    for name in tribe_names:
-        if name not in seen:
-            seen.add(name)
-            unique_names.append(name)
-
-    choices = [app_commands.Choice(name=p, value=p) for p in unique_names if current.lower() in p.lower()]
-
-    return choices[:25]
 
 @bot.tree.command(name="addtribe", description="Add a new tribe to the current season.")
 @app_commands.describe(name="The name of the tribe.", 
@@ -111,7 +112,7 @@ async def addtribe(interaction: discord.Interaction, name: str, iteration: int =
         await interaction.followup.send("Invalid color format. Please provide a valid 6-digit hex color code (i.e. #abd123).", ephemeral=True)
         return
     
-    server_id = str(guild.id)
+    server_id = guild.id
 
     result = database.add_tribe(name, server_id, iteration, color, order_id)
 
@@ -156,11 +157,10 @@ async def addplayer(interaction: discord.Interaction, name: str, user: Member, t
         await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
         return
     
-
     discord_id = user.id
     server_id = interaction.guild.id
 
-    player_names = database.get_player_names(str(server_id))
+    player_names = database.get_player_names(server_id)
     if name in player_names:
         await interaction.response.send_message(f"Player **{name}** already exists in the current season.")
         return
@@ -208,7 +208,7 @@ async def listtribes(interaction: discord.Interaction):
         await interaction.response.send_message("This command must be run in a server.", ephemeral=True)
         return
     
-    server_id = str(guild.id)
+    server_id = guild.id
 
     tribes = database.get_tribes(server_id)
 
@@ -234,13 +234,12 @@ async def listtribes(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
-role_arrangement = ['Host', 'Survivor Bot', 'Immunity', 'Tribes', 'Castaway', 'Players', 'Trusted Viewer', 'Viewer']
 async def arrange_roles(guild: discord.Guild):
 
     bot_member = await guild.fetch_member(guild.me.id)
     bot_top_role = bot_member.top_role
 
-    server_id = str(guild.id)
+    server_id = guild.id
     tribes = database.get_tribes(server_id)
 
     all_roles = await guild.fetch_roles()
@@ -265,7 +264,6 @@ async def arrange_roles(guild: discord.Guild):
             # Role doesn't exist in the server yet
             pass
 
-
     players = database.get_players(server_id)
     player_roles = []
     for player in players:
@@ -279,9 +277,8 @@ async def arrange_roles(guild: discord.Guild):
         else:
             pass
 
-
     arranged_roles = []
-    for name in role_arrangement:
+    for name in ROLE_ORDER:
         if name == "Tribes":
             arranged_roles.extend(tribe_roles)
         elif name == "Players":
@@ -311,25 +308,13 @@ async def listplayers(interaction: discord.Interaction):
         await interaction.response.send_message("This command must be run in a server.", ephemeral=True)
         return
 
-    server_id = str(guild.id)
+    server_id = guild.id
     players = database.get_players(server_id)
 
     if not players:
         await interaction.response.send_message("No players found for this season.", ephemeral=True)
         return
 
-    # Print to console for debugging
-    for player in players:
-        print(
-            f"ID: {player['id']}, "
-            f"Display Name: {player['display_name']}, "
-            f"Discord ID: {player['discord_id']}, "
-            f"Username: {player['username']}, "
-            f"Tribe: {player['tribe_name'] or 'None'} "
-            f"(Iteration: {player['tribe_iteration'] or 'N/A'})"
-        )
-
-    # Also send to Discord
     embed = discord.Embed(
         title=f"Players in {guild.name}",
         color=discord.Color.green()
@@ -358,14 +343,14 @@ async def revealplayer(interaction: discord.Interaction, name: str):
         await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
         return
     
-    player_names = database.get_player_names(str(guild.id))
+    player_names = database.get_player_names(guild.id)
     if name not in player_names:
         await interaction.response.send_message(f"Player **{name}** does not exist in the current season.")
         return
     
     await interaction.response.defer()
 
-    season_players = database.get_players(str(guild.id))
+    season_players = database.get_players(guild.id)
     matched_player = next((p for p in season_players if name == p['display_name']), None)
 
     if not matched_player:
@@ -416,5 +401,20 @@ async def revealplayer(interaction: discord.Interaction, name: str):
 
     except Exception as e:
         print(f"Failed to reveal castaway: {e}")
+
+@bot.tree.command(name="setuptribe")
+@app_commands.describe(tribe="The tribe to set up.")
+@app_commands.autocomplete(tribe=autocomplete_tribes)
+async def setuptribe(interaction: discord.Interaction, tribe: str, iteration: int):
+
+    guild = interaction.guild
+
+    if not guild:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
+    
+    tribes = database.get_tribes(guild.id)
+
+    
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
