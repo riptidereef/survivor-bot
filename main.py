@@ -402,19 +402,6 @@ async def revealplayer(interaction: discord.Interaction, name: str):
     except Exception as e:
         print(f"Failed to reveal castaway: {e}")
 
-@bot.tree.command(name="setuptribe")
-@app_commands.describe(tribe="The tribe to set up.")
-@app_commands.autocomplete(tribe=autocomplete_tribes)
-async def setuptribe(interaction: discord.Interaction, tribe: str, iteration: int):
-
-    guild = interaction.guild
-
-    if not guild:
-        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
-        return
-    
-    tribes = database.get_tribes(guild.id)
-
     
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
