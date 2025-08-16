@@ -406,19 +406,58 @@ async def revealplayer(interaction: discord.Interaction, name: str):
 async def setupcategories(interaction: discord.Interaction):
     guild = interaction.guild
 
+    if not guild:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
+    
+    await interaction.response.defer()
+
     category_map = {category.name: category for category in guild.categories}
 
     category_list = []
     for category in CATEGORY_STRUCTURE:
-        server_category = category_map.get(category["name"])
 
+        # Skip category (don't create/arrange on setup)
+        create_on_setup = category.get("create_on_setup")
+        if not create_on_setup:
+            continue
+
+        server_category = category_map.get(category["name"])
         if server_category is not None:
+            # Category already exists in the server
             category_list.append(server_category)
+        else:
+            # Create category because it doesn't exist yet
+            new_category = await guild.create_category(name=category["name"])
+            category_list.append(new_category)
 
     for cat in category_list:
         print(cat.name)
+
+    await arrange_categories(guild)
         
-    await interaction.response.send_message("Done.")
+    await interaction.followup.send("Done.")
+
+async def arrange_categories(guild: discord.guild):
+
+    category_map = {category.name: category for category in guild.categories}
     
+    category_list = []
+    for category in CATEGORY_STRUCTURE:
+
+        # TODO: Categories with dyanmic arrangements
+
+        server_category = category_map.get(category["name"])
+        if server_category is not None:
+            category_list.append(server_category)
+
+    previous_category = None
+    for i, category in enumerate(category_list):
+        if i == 0:
+            await category.move(beginning=True)
+        else:
+            await category.move(after=previous_category)
+        previous_category = category
+
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)

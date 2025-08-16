@@ -36,7 +36,7 @@ CATEGORY_STRUCTURE = [
     },
     {
         "name": "Tribal Councils",
-        "create_on_setup": True,
+        "create_on_setup": False,
     },
     {
         "name": "Confessionals",
@@ -52,7 +52,7 @@ CATEGORY_STRUCTURE = [
     },
     {
         "name": "Submissions",
-        "create_on_startup": True,
+        "create_on_setup": True,
     },
     {
         "name": "1-1",
