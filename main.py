@@ -402,6 +402,23 @@ async def revealplayer(interaction: discord.Interaction, name: str):
     except Exception as e:
         print(f"Failed to reveal castaway: {e}")
 
+@bot.tree.command(name="setupcategories", description="Arrange the server category structure.")
+async def setupcategories(interaction: discord.Interaction):
+    guild = interaction.guild
+
+    category_map = {category.name: category for category in guild.categories}
+
+    category_list = []
+    for category in CATEGORY_STRUCTURE:
+        server_category = category_map.get(category["name"])
+
+        if server_category is not None:
+            category_list.append(server_category)
+
+    for cat in category_list:
+        print(cat.name)
+        
+    await interaction.response.send_message("Done.")
     
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
