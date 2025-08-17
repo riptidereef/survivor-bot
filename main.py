@@ -459,5 +459,67 @@ async def arrange_categories(guild: discord.guild):
             await category.move(after=previous_category)
         previous_category = category
 
+class TribeSetupButtons(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Click Me!", style=discord.ButtonStyle.danger)
+    async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("You clicked the button!", ephemeral=True)
+
+    @discord.ui.button(label="Click Me! 2", style=discord.ButtonStyle.success)
+    async def button_callback2(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("You clicked the button! 2", ephemeral=True)
+
+
+@bot.tree.command(name="setuptribe", description="Perform an action to set up a tribe.")
+@app_commands.autocomplete(tribe=autocomplete_tribes)
+async def setuptribe(interaction: discord.Interaction, tribe: str, iteration: int = 1):
+
+    guild = interaction.guild
+
+    if not guild:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
+
+    tribes = database.get_tribes(guild.id)
+    
+    matching_tribe = next((t for t in tribes if t["name"] == tribe and t["iteration"] == iteration), None)
+
+    if not matching_tribe:
+        await interaction.response.send_message("Tribe not found.")
+        return
+    
+    if matching_tribe["iteration"] == 1:
+        tribe_name = matching_tribe["name"]
+    else:
+        tribe_name = f"{matching_tribe["name"]} {matching_tribe["iteration"]}.0"
+
+    color = matching_tribe["color"]
+    color_value = int(color, 16)
+    discord_color = discord.Color(color_value)
+    
+    embed = discord.Embed(
+        title=tribe_name,
+        color=discord_color
+    )
+
+    players = database.get_players(guild.id)
+    players_string = ""
+    for player in players:
+        if player["tribe_name"] == matching_tribe["name"] and player["tribe_iteration"] == matching_tribe["iteration"]:
+            # Player in the tribe
+            players_string += f"{player["display_name"]}\n"
+        else:
+            continue
+
+    embed.add_field(name="Members:", value=players_string, inline=False)
+
+    view = TribeSetupButtons()
+
+    await interaction.response.send_message(embed=embed, view=view)
+    
+
+
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
