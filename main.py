@@ -460,16 +460,56 @@ async def arrange_categories(guild: discord.guild):
         previous_category = category
 
 class TribeSetupButtons(discord.ui.View):
-    def __init__(self):
+    def __init__(self, tribe: str, iteration: int = 1):
         super().__init__(timeout=None)
+        self.tribe = tribe
+        self.iteration = iteration
 
-    @discord.ui.button(label="Click Me!", style=discord.ButtonStyle.danger)
-    async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("You clicked the button!", ephemeral=True)
+    def get_channel_name(self):
+        if self.iteration == 1:
+            return self.tribe.lower()
+        else:
+            return f"{self.tribe.lower()}-{self.iteration}"
 
-    @discord.ui.button(label="Click Me! 2", style=discord.ButtonStyle.success)
-    async def button_callback2(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("You clicked the button! 2", ephemeral=True)
+    @discord.ui.button(label="Tribe Chat", style=discord.ButtonStyle.blurple)
+    async def tribe_chat_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = interaction.guild
+
+        category = discord.utils.get(guild.categories, name="Tribes")
+        if category is None:
+            await interaction.response.send_message("Tribes category not found. Please use /setupcategories first.", ephemeral=True)
+            return
+        
+        channel = discord.utils.get(category.channels, name=self.get_channel_name())
+        if channel is not None:
+            # TODO: Add a second check to make sure channel is meant to be deleted.
+            print("Deleting channel.")
+            await channel.delete()
+            await interaction.response.send_message(
+                f"Deleted channel #{self.get_channel_name()}.", ephemeral=True
+            )
+        else:
+            print("Creating new channel.")
+            new_channel = await guild.create_text_channel(name=self.get_channel_name(), category=category)
+            await interaction.response.send_message(
+                f"Created tribe chat {new_channel.mention}.", ephemeral=True
+            )
+
+    @discord.ui.button(label="Tribe 1-1's", style=discord.ButtonStyle.blurple)
+    async def one_on_one_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Make tribe 1-1's in the correct category.", ephemeral=True)
+
+    @discord.ui.button(label="Tribe VC", style=discord.ButtonStyle.blurple)
+    async def tribe_vc_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Make tribe VC in the correct category.", ephemeral=True)
+
+    @discord.ui.button(label="Tribe Confessionals", style=discord.ButtonStyle.blurple)
+    async def tribe_confessional_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Make tribe confessionals in the correct category.", ephemeral=True)
+
+    @discord.ui.button(label="Tribe Submissions", style=discord.ButtonStyle.blurple)
+    async def tribe_submissions_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Make tribe submissions in the correct category.", ephemeral=True)
 
 
 @bot.tree.command(name="setuptribe", description="Perform an action to set up a tribe.")
@@ -515,7 +555,7 @@ async def setuptribe(interaction: discord.Interaction, tribe: str, iteration: in
 
     embed.add_field(name="Members:", value=players_string, inline=False)
 
-    view = TribeSetupButtons()
+    view = TribeSetupButtons(tribe=tribe, iteration=iteration)
 
     await interaction.response.send_message(embed=embed, view=view)
     

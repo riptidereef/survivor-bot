@@ -32,7 +32,7 @@ CATEGORY_STRUCTURE = [
     },
     {
         "name": "Tribes",
-        "create_on_setup": False,
+        "create_on_setup": True,
     },
     {
         "name": "Tribal Councils",
