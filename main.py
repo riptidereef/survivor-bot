@@ -500,7 +500,6 @@ class TribeSetupButtons(discord.ui.View):
 
     @discord.ui.button(label="Toggle Tribe VC", style=discord.ButtonStyle.blurple)
     async def tribe_vc_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-
         guild = interaction.guild
 
         category = discord.utils.get(guild.categories, name="Tribes")
@@ -513,13 +512,11 @@ class TribeSetupButtons(discord.ui.View):
         channel = discord.utils.get(category.voice_channels, name=voice_channel_name)
         if channel is not None:
             # TODO: Add a second check to make sure channel is meant to be deleted.
-            print("Deleting voice channel.")
             await channel.delete()
             await interaction.response.send_message(
                 f"Deleted channel {voice_channel_name}.", ephemeral=True
             )
         else:
-            print("Creating new channel.")
             new_channel = await guild.create_voice_channel(name=voice_channel_name, category=category)
             await interaction.response.send_message(
                 f"Created tribe chat {new_channel.mention}.", ephemeral=True
@@ -581,16 +578,55 @@ async def setuptribe(interaction: discord.Interaction, tribe: str, iteration: in
     await interaction.response.send_message(embed=embed, view=view)
 
 class PlayerSetupButtons(discord.ui.View):
-    def __init__(self):
+    def __init__(self, name: str):
         super().__init__(timeout=None)
+        self.name = name
 
     @discord.ui.button(label="Toggle Submissions", style=discord.ButtonStyle.blurple)
     async def player_submissions_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Toggle submissions channel.")
+        guild = interaction.guild
+
+        category = discord.utils.get(guild.categories, name="Submissions")
+        if category is None:
+            await interaction.response.send_message("Submissions category not found. Please use /setupcategories first.", ephemeral=True)
+            return
+        
+        channel_name = f"{self.name.lower()}-submissions"
+        channel = discord.utils.get(guild.text_channels, name=channel_name)
+        if channel is not None:
+            # TODO: Add a second check to make sure channel is meant to be deleted.
+            await channel.delete()
+            await interaction.response.send_message(
+                f"Deleted channel {channel_name}.", ephemeral=True
+            )
+        else:
+            new_channel = await guild.create_text_channel(name=channel_name, category=category)
+            await interaction.response.send_message(
+                f"Created tribe chat {new_channel.mention}.", ephemeral=True
+            )
 
     @discord.ui.button(label="Toggle Confessionals", style=discord.ButtonStyle.blurple)
     async def player_confessionals_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Toggle confessionals channel.")
+        guild = interaction.guild
+
+        category = discord.utils.get(guild.categories, name="Confessionals")
+        if category is None:
+            await interaction.response.send_message("Confessionals category not found. Please use /setupcategories first.", ephemeral=True)
+            return
+        
+        channel_name = f"{self.name.lower()}-confessional"
+        channel = discord.utils.get(guild.text_channels, name=channel_name)
+        if channel is not None:
+            # TODO: Add a second check to make sure channel is meant to be deleted.
+            await channel.delete()
+            await interaction.response.send_message(
+                f"Deleted channel {channel_name}.", ephemeral=True
+            )
+        else:
+            new_channel = await guild.create_text_channel(name=channel_name, category=category)
+            await interaction.response.send_message(
+                f"Created tribe chat {new_channel.mention}.", ephemeral=True
+            )
 
 @bot.tree.command(name="setupplayer", description="Perform an action to set up a player.")
 @app_commands.autocomplete(name=autocomplete_players)
@@ -632,7 +668,7 @@ async def setuptribe(interaction: discord.Interaction, name: str):
     tribe_role = discord.utils.get(guild.roles, name=tribe_string)
     embed.add_field(name="Tribe", value=tribe_role.mention, inline=False)
 
-    view = PlayerSetupButtons()
+    view = PlayerSetupButtons(name=name)
 
     await interaction.response.send_message(embed=embed, view=view)
 
