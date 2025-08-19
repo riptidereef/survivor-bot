@@ -8,7 +8,7 @@ class ServerCommands(commands.Cog):
 
     @app_commands.command(name="hello", description="Say hello to the bot.")
     async def hello(self, interaction: discord.Interaction):
-        await interaction.followup.send("Hello!")
+        await interaction.response.send_message("Hello!")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ServerCommands(bot))

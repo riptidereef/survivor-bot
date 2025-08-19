@@ -33,7 +33,8 @@ intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 COGS = [
-    "commands.server_commands"
+    "commands.server_commands",
+    "commands.season_commands"
 ]
 
 @bot.event
@@ -65,5 +66,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Bot stopped manually.")
-    except Exception:
-        print("Bot crashed unexpectedly.")
+    except Exception as e:
+        print(f"Bot crashed unexpectedly due to {e}.")
