@@ -9,10 +9,22 @@ from database import connection
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    handlers=[logging.FileHandler(filename='logs/main.log', encoding='utf-8', mode='w')]
+log_dir = os.path.join(os.path.dirname(__file__), "logs")
+os.makedirs(log_dir, exist_ok=True)
+log_path = os.path.join(log_dir, "bot.log")
+
+logger = logging.getLogger("bot_logger")
+logger.setLevel(logging.DEBUG)
+
+file_handler = logging.FileHandler(log_path, encoding="utf-8", mode="w")
+formatter = logging.Formatter(
+    fmt='[%(asctime)s] [%(levelname)-8s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
+file_handler.setFormatter(formatter)
+
+if not logger.handlers:
+    logger.addHandler(file_handler)
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -37,6 +49,10 @@ async def on_ready():
 
     print("Ready to go.")
 
+@bot.tree.error
+async def on_app_command_error(interaction, error):
+    logger.exception(f"Slash command error: {error}")
+
 async def main():
     async with bot:
         for cog in COGS:
@@ -49,3 +65,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Bot stopped manually.")
+    except Exception:
+        print("Bot crashed unexpectedly.")
