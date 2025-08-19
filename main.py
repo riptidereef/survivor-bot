@@ -211,6 +211,8 @@ async def listtribes(interaction: discord.Interaction):
     server_id = guild.id
 
     tribes = database.get_tribes(server_id)
+    tribes_order = database.get_tribe_order(server_id)
+    print(tribes_order)
 
     if not tribes:
         await interaction.response.send_message("No tribes found for this season.", ephemeral=True)
@@ -524,11 +526,62 @@ class TribeSetupButtons(discord.ui.View):
 
     @discord.ui.button(label="Toggle Tribe Confessionals", style=discord.ButtonStyle.blurple)
     async def tribe_confessional_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Make tribe confessionals in the correct category.", ephemeral=True)
+        guild = interaction.guild
+
+        tribe_name = f"{self.tribe}" if self.iteration == 1 else f"{self.tribe} {self.iteration}.0"
+        category_name = f"{tribe_name} Confessionals"
+        category = discord.utils.get(guild.categories, name=category_name)
+        if category is None:
+            category = await guild.create_category(name=category_name)
+        else:
+            # TODO: Handle removal
+            pass
+
+        players = database.get_players(guild.id)
+
+        for player in players:
+
+            if player["tribe_name"] != self.tribe or player["tribe_iteration"] != self.iteration:
+                continue  
+
+            channel_name = f"{player["display_name"].lower()}-confessional"
+            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            if channel:
+                await channel.edit(category=category)
+            else:
+                await category.create_text_channel(name=channel_name)
+            
+            await interaction.response.send_message(f"Updated confessionals for tribe {tribe_name}.")
+
 
     @discord.ui.button(label="Toggle Individual Submissions", style=discord.ButtonStyle.blurple)
     async def tribe_submissions_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Make tribe submissions in the correct category.", ephemeral=True)
+        guild = interaction.guild
+
+        tribe_name = f"{self.tribe}" if self.iteration == 1 else f"{self.tribe} {self.iteration}.0"
+        category_name = f"{tribe_name} Submissions"
+        category = discord.utils.get(guild.categories, name=category_name)
+        if category is None:
+            category = await guild.create_category(name=category_name)
+        else:
+            # TODO: Handle removal
+            pass
+
+        players = database.get_players(guild.id)
+
+        for player in players:
+
+            if player["tribe_name"] != self.tribe or player["tribe_iteration"] != self.iteration:
+                continue  
+
+            channel_name = f"{player["display_name"].lower()}-submissions"
+            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            if channel:
+                await channel.edit(category=category)
+            else:
+                await category.create_text_channel(name=channel_name)
+            
+            await interaction.response.send_message(f"Updated submissions for tribe {tribe_name}.")
 
 @bot.tree.command(name="setuptribe", description="Perform an action to set up a tribe.")
 @app_commands.autocomplete(tribe=autocomplete_tribes)
@@ -602,7 +655,7 @@ class PlayerSetupButtons(discord.ui.View):
         else:
             new_channel = await guild.create_text_channel(name=channel_name, category=category)
             await interaction.response.send_message(
-                f"Created tribe chat {new_channel.mention}.", ephemeral=True
+                f"Created chat {new_channel.mention}.", ephemeral=True
             )
 
     @discord.ui.button(label="Toggle Confessionals", style=discord.ButtonStyle.blurple)
@@ -625,7 +678,7 @@ class PlayerSetupButtons(discord.ui.View):
         else:
             new_channel = await guild.create_text_channel(name=channel_name, category=category)
             await interaction.response.send_message(
-                f"Created tribe chat {new_channel.mention}.", ephemeral=True
+                f"Created chat {new_channel.mention}.", ephemeral=True
             )
 
 @bot.tree.command(name="setupplayer", description="Perform an action to set up a player.")

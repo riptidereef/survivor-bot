@@ -229,7 +229,7 @@ def add_player(display_name: str, discord_id: int, server_id: int, tribe_name: s
         conn.close()
         return -99
 
-def get_tribes(server_id: int) -> list[dict]:
+def get_tribes(server_id: int, ascending: bool = False) -> list[dict]:
     conn = get_connection()
     c = conn.cursor()
 
@@ -243,12 +243,20 @@ def get_tribes(server_id: int) -> list[dict]:
         
         season_id = season_row['id']
 
-        command = '''
-            SELECT id, name, iteration, color, order_id
-            FROM tribes
-            WHERE season = ?
-            ORDER BY order_id DESC, iteration ASC, name ASC
-        '''
+        if not ascending:
+            command = '''
+                SELECT id, name, iteration, color, order_id
+                FROM tribes
+                WHERE season = ?
+                ORDER BY order_id DESC, name ASC, iteration ASC; 
+            '''
+        else:
+            command = '''
+                SELECT id, name, iteration, color, order_id
+                FROM tribes
+                WHERE season = ?
+                ORDER BY order_id ASC, name ASC, iteration ASC; 
+            '''
         c.execute(command, (season_id,))
 
         tribes = [dict(row) for row in c.fetchall()]
@@ -387,3 +395,39 @@ def get_player_tribe(server_id: int, name: str) -> dict:
     finally:
         conn.close()
 
+def get_tribe_order(server_id: int) -> list[str]:
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        c.execute("SELECT id FROM seasons WHERE server_id = ?", (server_id,))
+        season_row = c.fetchone()
+        if season_row is None:
+            logger.warning(f"No season found for server_id {server_id}")
+            return None
+        season_id = season_row['id']
+        
+        command = '''
+            SELECT name, iteration FROM tribes WHERE season = ?
+            ORDER BY order_id ASC, name ASC;
+        '''
+        c.execute(command, (season_id,))
+        tribes = [dict(row) for row in c.fetchall()]
+
+        tribe_names = []
+        for tribe in tribes:
+            name = tribe["name"]
+            iteration = tribe["iteration"]
+            if iteration == 1:
+                tribe_names.append(name)
+            else:
+                tribe_names.append(f"{name} {iteration}.0")
+
+        return tribe_names
+
+    except Exception as e:
+        logger.error(f"Error fetching player tribe: {e}")
+        return None
+
+    finally:
+        conn.close()
