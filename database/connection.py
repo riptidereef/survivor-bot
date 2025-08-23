@@ -49,13 +49,13 @@ def setup_tables():
         "tribes": '''
             CREATE TABLE IF NOT EXISTS tribes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
+                tribe_name TEXT NOT NULL,
                 iteration INTEGER DEFAULT 1,
-                season INTEGER NOT NULL,
+                season_id INTEGER NOT NULL,
                 color TEXT NOT NULL DEFAULT 'd3d3d3',
                 order_id INT NOT NULL DEFAULT 1,
-                FOREIGN KEY(season) REFERENCES seasons(id),
-                UNIQUE(name, iteration, season)
+                FOREIGN KEY(season_id) REFERENCES seasons(id),
+                UNIQUE(tribe_name, iteration, season_id)
             );
         ''',
 
@@ -63,14 +63,14 @@ def setup_tables():
             CREATE TABLE IF NOT EXISTS players (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 display_name TEXT NOT NULL,
-                user INTEGER NOT NULL,
-                season INTEGER NOT NULL,
-                tribe INTEGER DEFAULT NULL,
-                FOREIGN KEY (user) REFERENCES users(id),
-                FOREIGN KEY (season) REFERENCES seasons(id),
-                FOREIGN KEY (tribe) REFERENCES tribes(id),
-                UNIQUE (user, season),
-                UNIQUE (display_name, season)
+                user_id INTEGER NOT NULL,
+                season_id INTEGER NOT NULL,
+                tribe_id INTEGER DEFAULT NULL,
+                FOREIGN KEY (user_Id) REFERENCES users(id),
+                FOREIGN KEY (season_id) REFERENCES seasons(id),
+                FOREIGN KEY (tribe_id) REFERENCES tribes(id),
+                UNIQUE (user_id, season_id),
+                UNIQUE (display_name, season_id)
             );
         '''
     }

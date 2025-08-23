@@ -4,7 +4,7 @@ import logging
 import os
 import asyncio
 from dotenv import load_dotenv
-from database import connection
+from database import connection, queries
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -48,6 +48,19 @@ async def on_ready():
 
     connection.setup_tables()
 
+    # Add all users from all servers
+    user_count = 0
+    for guild in bot.guilds:
+        print(f"Syncing members from guild: {guild.name}")
+        async for member in guild.fetch_members(limit=None):
+            if not member.bot:
+                discord_id = member.id
+                username = str(member)
+                success = queries.add_user(discord_id, username)
+                if success:
+                    user_count += 1
+
+    print(f"Finished syncing {user_count} new users.")
     print("Ready to go.")
 
 @bot.tree.error
