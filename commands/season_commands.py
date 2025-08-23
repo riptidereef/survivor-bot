@@ -86,10 +86,10 @@ class SeasonCommands(commands.Cog):
 
         await interaction.response.defer()
     
-        result = queries.add_player(player_name, discord_id, server_id, tribe_name, tribe_iteration)
+        result, player = queries.add_player(player_name, discord_id, server_id, tribe_name, tribe_iteration)
 
         if result == 1:
-            await interaction.followup.send(f"**{player_name}** has been added to the current season.")
+            await interaction.followup.send(f"**{player.display_name}** has been added to the current season.")
         elif result == 0:
             await interaction.followup.send(f"A player with the name **{player_name}** already exists in this season.")
         elif result == -1:

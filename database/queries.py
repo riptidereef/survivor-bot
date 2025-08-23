@@ -1,4 +1,5 @@
 from .connection import get_connection, logger
+from models.player import Player
 
 def add_user(discord_id: int, username: str) -> bool:
     conn = get_connection()
@@ -92,7 +93,7 @@ def add_tribe(tribe_name: str, server_id: int, iteration: int = 1, color: str = 
     finally:
         conn.close()
 
-def add_player(display_name: str, discord_id: int, server_id: int, tribe_name: str = None, tribe_iter: int = 1) -> int:
+def add_player(display_name: str, discord_id: int, server_id: int, tribe_name: str = None, tribe_iter: int = 1) -> tuple[int, Player | None]:
 
     # 1  = success.
     # 0  = display_name already exists in this season.
@@ -112,7 +113,7 @@ def add_player(display_name: str, discord_id: int, server_id: int, tribe_name: s
         result = c.fetchone()
         if result is None:
             logger.warning(f"User with discord_id {discord_id} not found.")
-            return -2
+            return -2, None
         user_id = result[0]
 
         # Server check
@@ -121,7 +122,7 @@ def add_player(display_name: str, discord_id: int, server_id: int, tribe_name: s
         result = c.fetchone()
         if result is None:
             logger.warning(f"Season with server_id {server_id} not found.")
-            return -3
+            return -3, None
         season_id = result[0]
 
         # Tribe check
@@ -132,7 +133,7 @@ def add_player(display_name: str, discord_id: int, server_id: int, tribe_name: s
             result = c.fetchone()
             if result is None:
                 logger.warning(f"Tribe {tribe_name} (iteration {tribe_iter}) not found in season {season_id}.")
-                return -4
+                return -4, None
         
             tribe_id = result[0]
 
@@ -141,14 +142,14 @@ def add_player(display_name: str, discord_id: int, server_id: int, tribe_name: s
         result = c.fetchone()
         if result is not None:
             logger.info(f"Display name '{display_name}' already exists in season {season_id}.")
-            return -5
+            return -5, None
 
         # Duplicate user_id in the same season check
         c.execute("SELECT 1 FROM players WHERE user_id = ? AND season_id = ?", (user_id, season_id))
         result = c.fetchone()
         if result is not None:
             logger.info(f"User {user_id} already registered as a player in season {season_id}.")
-            return -6
+            return -6, None
 
         command = '''
             INSERT OR IGNORE INTO players (display_name, user_id, season_id, tribe_id)
@@ -162,13 +163,94 @@ def add_player(display_name: str, discord_id: int, server_id: int, tribe_name: s
             return 0
         
         logger.info(f"User {user_id} added to season {season_id} with tribe {tribe_id}.")
-        return 1
+
+        new_player = Player(
+            display_name=display_name,
+            user_id=user_id,
+            season_id=season_id,
+            player_id=c.lastrowid,
+            tribe_id=tribe_id,
+        )
+
+        return 1, new_player
 
     except Exception as e:
         logger.error(f"Error adding player: {e}")
-        return -1
+        return -1, None
     
     finally:
         conn.close()
 
+def get_player(server_id: int, 
+               player_id: int | None = None,
+               display_name: str | None = None,
+               user_id: int | None = None,
+               discord_id: int | None = None,
+               season_id: int | None = None,
+               tribe_id: int | None = None,
+               tribe_name: str | None = None,
+               tribe_iteration: int = 1) -> list[Player]:
+    
+    conn = get_connection()
+    c = conn.cursor()
 
+    try:
+        if season_id is None:
+            c.execute("SELECT id FROM seasons WHERE server_id = ?", (server_id,))
+            result = c.fetchone()
+            if result is None:
+                logger.warning(f"Season with server_id {server_id} not found.")
+                return []
+            season_id = result[0]
+
+        if player_id is not None:
+            query = "SELECT * FROM players WHERE season_id = ? AND id = ?"
+            params = (season_id, player_id)
+        elif display_name is not None:
+            query = "SELECT * FROM players WHERE season_id = ? AND display_name = ?"
+            params = (season_id, display_name)
+        elif user_id is not None:
+            query = "SELECT * FROM players WHERE season_id = ? AND user_id = ?"
+            params = (season_id, user_id)
+        elif discord_id is not None:
+            query = '''
+                SELECT p.* FROM players p
+                JOIN users u ON p.user_id = u.id
+                WHERE p.season_id = ? AND u.discord_id = ?
+            '''
+            params = (season_id, discord_id)
+        elif tribe_id is not None:
+            query = "SELECT * FROM players WHERE season_id = ? AND tribe_id = ?"
+            params = (season_id, tribe_id)
+        elif tribe_name is not None:
+            query = '''
+                SELECT p.* FROM players p
+                JOIN tribes t ON p.tribe_id = t.id
+                WHERE p.season_id = ? AND t.tribe_name = ? AND t.iteration = ?
+            '''
+            params = (season_id, tribe_name, tribe_iteration)
+        else:
+            query = "SELECT * FROM players WHERE season_id = ?"
+            params = (season_id)
+    
+        c.execute(query, params)
+        rows = c.fetchall()
+
+        players = []
+        for row in rows:
+            row_dict = dict(row)
+            new_player = Player(display_name=row_dict["display_name"],
+                                user_id=row_dict["user_id"],
+                                season_id=row_dict["season_id"],
+                                player_id=row_dict["player_id"],
+                                tribe_id=row_dict["tribe_id"])
+            players.append(new_player)
+
+        return players
+
+    except Exception as e:
+        logger.error(f"Error retrieving player: {e}")
+        return []
+
+    finally:
+        conn.close()
