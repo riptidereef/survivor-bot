@@ -207,12 +207,15 @@ def get_player(server_id: int,
         if player_id is not None:
             query = "SELECT * FROM players WHERE season_id = ? AND id = ?"
             params = (season_id, player_id)
+
         elif display_name is not None:
             query = "SELECT * FROM players WHERE season_id = ? AND display_name = ?"
             params = (season_id, display_name)
+
         elif user_id is not None:
             query = "SELECT * FROM players WHERE season_id = ? AND user_id = ?"
             params = (season_id, user_id)
+
         elif discord_id is not None:
             query = '''
                 SELECT p.* FROM players p
@@ -220,9 +223,11 @@ def get_player(server_id: int,
                 WHERE p.season_id = ? AND u.discord_id = ?
             '''
             params = (season_id, discord_id)
+
         elif tribe_id is not None:
             query = "SELECT * FROM players WHERE season_id = ? AND tribe_id = ?"
             params = (season_id, tribe_id)
+
         elif tribe_name is not None:
             query = '''
                 SELECT p.* FROM players p
@@ -230,6 +235,7 @@ def get_player(server_id: int,
                 WHERE p.season_id = ? AND t.tribe_name = ? AND t.iteration = ?
             '''
             params = (season_id, tribe_name, tribe_iteration)
+
         else:
             query = "SELECT * FROM players WHERE season_id = ?"
             params = (season_id,)
@@ -277,6 +283,98 @@ def get_tribe(server_id: int,
                 logger.warning(f"Season with server_id {server_id} not found.")
                 return []
             season_id = result[0]
+
+        if tribe_id is not None:
+            query = "SELECT * FROM tribes WHERE season_id = ? AND id = ?"
+            params = (season_id, tribe_id)
+
+        elif tribe_name is not None:
+            query = "SELECT * FROM tribes WHERE season_id = ? AND tribe_name = ? AND iteration = ?"
+            params = (season_id, tribe_name, tribe_iteration)
+
+        elif player_name is not None:
+            c.execute("SELECT tribe_id FROM players WHERE season_id = ? AND display_name = ?", (season_id, player_name))
+            result = c.fetchone()
+            if result is None:
+                logger.warning(f"Player with display_name {player_name} not found.")
+                return []
+            tribe_id = result[0]
+            if tribe_id is None:
+                logger.warning(f"Player {player_name} exists but is not assigned to a tribe.")
+                return []
+            query = "SELECT * FROM tribes WHERE season_id = ? AND id = ?"
+            params = (season_id, tribe_id)
+
+        elif player_id is not None:
+            c.execute("SELECT tribe_id FROM players WHERE season_id = ? AND id = ?", (season_id, player_id))
+            result = c.fetchone()
+            if result is None:
+                logger.warning(f"Player with player_id {player_id} not found.")
+                return []
+            tribe_id = result[0]
+            if tribe_id is None:
+                logger.warning(f"Player with ID {player_id} exists but is not assigned to a tribe.")
+                return []
+            query = "SELECT * FROM tribes WHERE season_id = ? AND id = ?"
+            params = (season_id, tribe_id)
+
+        elif player_discord_id is not None:
+            c.execute("SELECT id FROM users WHERE discord_id = ?", (player_discord_id,))
+            result = c.fetchone()
+            if result is None:
+                logger.warning(f"User with discord_id {player_discord_id} not found in users table.")
+                return []
+            user_id = result[0]
+
+            c.execute("SELECT tribe_id FROM players WHERE season_id = ? AND user_id = ?", (season_id, user_id))
+            result = c.fetchone()
+            if result is None:
+                logger.warning(f"No player found in season {season_id} for user_id {user_id} (discord_id {player_discord_id}).")
+                return []
+            tribe_id = result[0]
+
+            if tribe_id is None:
+                logger.warning(f"User with discord_id {player_discord_id} (user_id {user_id}) exists in season {season_id} but is not assigned to a tribe.")
+                return []
+
+            query = "SELECT * FROM tribes WHERE season_id = ? AND id = ?"
+            params = (season_id, tribe_id)
+        
+        elif user_id is not None:
+            c.execute("SELECT tribe_id FROM players WHERE season_id = ? AND user_id = ?", (season_id, user_id))
+            result = c.fetchone()
+            if result is None:
+                logger.warning(f"No player found in season {season_id} for user_id {user_id}.")
+                return []
+            tribe_id = result[0]
+
+            if tribe_id is None:
+                logger.warning(f"User with user_id {user_id} exists in season {season_id} but is not assigned to a tribe.")
+                return []
+
+            query = "SELECT * FROM tribes WHERE season_id = ? AND id = ?"
+            params = (season_id, tribe_id)
+
+        else:
+            query = "SELECT * FROM tribes WHERE season_id = ?"
+            params = (season_id,)
+
+        c.execute(query, params)
+        rows = c.fetchall()
+
+        tribes = []
+        for row in rows:
+            row_dict = dict(row)
+            new_tribe = Tribe(tribe_id=row_dict["tribe_id"],
+                              tribe_name=row_dict["tribe_name"],
+                              iteration=row_dict["iteration"],
+                              season_id=row_dict["season_id"],
+                              color=row_dict["color"],
+                              order_id=row_dict["order_id"])
+            tribes.append(new_tribe)
+
+        return tribes
+
 
     except Exception as e:
         logger.error(f"Error retrieving tribe: {e}")
