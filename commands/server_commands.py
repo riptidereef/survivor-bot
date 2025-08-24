@@ -13,7 +13,8 @@ class ServerCommands(commands.Cog):
 
     @app_commands.command(name="test", description="Test out a certain function in the code.")
     async def test(self, interaction: discord.Interaction):
-        print(queries.get_player())
+        print(queries.get_player(server_id=interaction.guild.id, tribe_id=1))
+        await interaction.response.send_message("Done.")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ServerCommands(bot))

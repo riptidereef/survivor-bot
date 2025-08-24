@@ -1,11 +1,11 @@
 class Player():
     def __init__(
             self,
+            player_id: int | None,
             display_name: str,
             user_id: int,
             season_id: int,
-            player_id: int | None = None,
-            tribe_id: int | None = None
+            tribe_id: int | None
     ):
         self.player_id = player_id
         self.display_name = display_name

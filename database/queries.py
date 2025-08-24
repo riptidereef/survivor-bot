@@ -1,5 +1,6 @@
 from .connection import get_connection, logger
 from models.player import Player
+from models.tribe import Tribe
 
 def add_user(discord_id: int, username: str) -> bool:
     conn = get_connection()
@@ -231,7 +232,7 @@ def get_player(server_id: int,
             params = (season_id, tribe_name, tribe_iteration)
         else:
             query = "SELECT * FROM players WHERE season_id = ?"
-            params = (season_id)
+            params = (season_id,)
     
         c.execute(query, params)
         rows = c.fetchall()
@@ -242,7 +243,7 @@ def get_player(server_id: int,
             new_player = Player(display_name=row_dict["display_name"],
                                 user_id=row_dict["user_id"],
                                 season_id=row_dict["season_id"],
-                                player_id=row_dict["player_id"],
+                                player_id=row_dict["id"],
                                 tribe_id=row_dict["tribe_id"])
             players.append(new_player)
 
@@ -252,5 +253,34 @@ def get_player(server_id: int,
         logger.error(f"Error retrieving player: {e}")
         return []
 
+    finally:
+        conn.close()
+
+def get_tribe(server_id: int, 
+              tribe_id: int | None = None,
+              tribe_name: str | None = None,
+              tribe_iteration: int = 1,
+              player_name: str | None = None,
+              player_id: int | None = None,
+              player_discord_id: int | None = None,
+              user_id: int | None = None,
+              season_id: int | None = None) -> list[Tribe]:
+    
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        if season_id is None:
+            c.execute("SELECT id FROM seasons WHERE server_id = ?", (server_id,))
+            result = c.fetchone()
+            if result is None:
+                logger.warning(f"Season with server_id {server_id} not found.")
+                return []
+            season_id = result[0]
+
+    except Exception as e:
+        logger.error(f"Error retrieving tribe: {e}")
+        return []
+    
     finally:
         conn.close()
