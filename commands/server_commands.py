@@ -59,6 +59,44 @@ class ServerCommands(commands.Cog):
                 "Failed to update player. Check the provided parameters.", ephemeral=True
             )
 
+    @app_commands.command(name="test2", description="Test out the edit_tribe function in the code.")
+    async def test2(self,
+                    interaction: discord.Interaction,
+                    tribe_name: str = None,
+                    tribe_iteration: int = 1,
+                    tribe_id: int = None,
+                    new_tribe_name: str = None,
+                    new_tribe_iteration: int = None,
+                    new_color: str = None,
+                    new_order_id: int = None):
+        
+        guild = interaction.guild
+        if guild is None:
+            await interaction.response.send_message(
+                "This command must be run in a server.", ephemeral=True
+            )
+            return
+
+        success = queries.edit_tribe(
+            server_id=guild.id,
+            tribe_name=tribe_name,
+            tribe_iteration=tribe_iteration,
+            tribe_id=tribe_id,
+            new_tribe_name=new_tribe_name,
+            new_tribe_iteration=new_tribe_iteration,
+            new_color=new_color,
+            new_order_id=new_order_id
+        )
+
+        if success:
+            await interaction.response.send_message(
+                "Tribe updated successfully.", ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                "Failed to update tribe. Check the provided parameters.", ephemeral=True
+            )
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ServerCommands(bot))

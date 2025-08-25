@@ -472,12 +472,90 @@ def edit_player(server_id: int,
         conn.close()
 
 def edit_tribe(server_id: int,
-                 tribe: Tribe | None = None,
-                 tribe_name: str | None = None,
-                 tribe_iteration: int = 1,
-                 tribe_id: int | None = None,
-                 new_tribe_name: str | None = None,
-                 new_tribe_iteration: int | None = None,
-                 new_color: str | None = None,
-                 new_order_id: int | None = None) -> bool:
-    pass
+               tribe: Tribe | None = None,
+               tribe_name: str | None = None,
+               tribe_iteration: int = 1,
+               tribe_id: int | None = None,
+               new_tribe_name: str | None = None,
+               new_tribe_iteration: int | None = None,
+               new_color: str | None = None,
+               new_order_id: int | None = None) -> bool:
+    
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        if season_id is None:
+            c.execute("SELECT id FROM seasons WHERE server_id = ?", (server_id,))
+            result = c.fetchone()
+            if result is None:
+                logger.warning(f"Season with server_id {server_id} not found.")
+                return []
+            season_id = result[0]
+
+        if tribe is None:
+            if tribe_name is not None:
+                tribe = next(iter(get_tribe(server_id=server_id, tribe_name=tribe_name, tribe_iteration=tribe_iteration)), None)
+            elif tribe_id is not None:
+                tribe = next(iter(get_tribe(server_id=server_id, tribe_id=tribe_id)), None)
+
+        if tribe is None:
+            logger.warning("No tribe found to edit (invalid ID, name, or iteration).")
+            return False
+        
+        queries = []
+        params_list = []
+
+        # Update iteration + name
+        if new_tribe_name is not None and new_tribe_iteration is not None:
+            c.execute("SELECT 1 FROM tribes WHERE season_id = ? AND tribe_name = ? AND iteration = ?", (season_id, new_tribe_name, new_tribe_iteration))
+            if c.fetchone() is not None:
+                logger.warning("Tribe already exists in this season.")
+                return False
+            
+            query = "UPDATE tribes SET tribe_name = ?, iteration = ? WHERE id = ?"
+            params = (new_tribe_name, new_tribe_iteration, tribe.tribe_id)
+
+        # Update name only
+        elif new_tribe_name is not None:
+            c.execute("SELECT 1 FROM tribes WHERE season_id = ? AND tribe_name = ? AND iteration = ?", (season_id, new_tribe_name, tribe.iteration))
+            if c.fetchone() is not None:
+                logger.warning("Tribe already exists in this season.")
+                return False
+        
+            query = "UPDATE tribes SET tribe_name = ? WHERE id = ?"
+            params = (new_tribe_name, tribe.tribe_id)
+
+        # Update iteration only
+        elif new_tribe_iteration is not None:
+            c.execute("SELECT 1 FROM tribes WHERE season_id = ? AND tribe_name = ? AND iteration = ?", (season_id, tribe.tribe_name, new_tribe_iteration))
+            if c.fetchone() is not None:
+                logger.warning("Tribe already exists in this season.")
+                return False
+        
+            query = "UPDATE tribes SET iteration = ? WHERE id = ?"
+            params = (new_tribe_iteration, tribe.tribe_id)
+
+        if new_color is not None:
+            query = "UPDATE tribes SET color = ? WHERE id = ?"
+            params = (new_color, tribe.tribe_id)
+        if new_order_id is not None:
+            query = "UPDATE tribes SET order_id = ? WHERE id = ?"
+            params = (new_order_id, tribe.tribe_id)
+        
+        conn.execute("BEGIN")
+        rows_updated = 0
+        for query, params in zip(queries, params_list):
+            c.execute(query, params)
+            rows_updated += c.rowcount
+        conn.commit()
+        print(f"Rows updated: {rows_updated}")
+        return rows_updated > 0
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error editing player: {e}")
+        return False
+    
+    finally:
+        conn.close()
