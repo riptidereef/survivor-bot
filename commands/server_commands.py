@@ -12,9 +12,53 @@ class ServerCommands(commands.Cog):
         await interaction.response.send_message("Hello!")
 
     @app_commands.command(name="test", description="Test out a certain function in the code.")
-    async def test(self, interaction: discord.Interaction):
-        print(queries.get_player(server_id=interaction.guild.id, tribe_id=1))
-        await interaction.response.send_message("Done.")
+    async def test(self,
+                   interaction: discord.Interaction,
+                   display_name: str = None, 
+                   player_id: int = None, 
+                   player_discord_id: str = None, 
+                   user_id: int = None,
+                   new_display_name: str = None,
+                   new_tribe_id: int = None,
+                   new_tribe_name: str = None,
+                   new_tribe_iteration: int = 1):
+        
+        guild = interaction.guild
+        if guild is None:
+            await interaction.response.send_message(
+                "This command must be run in a server.", ephemeral=True
+            )
+            return
+
+        # Call edit_player with all optional parameters
+
+        if player_discord_id is None:
+            discord_id = None
+        else:
+            discord_id = int(player_discord_id)
+
+        success = queries.edit_player(
+            server_id=guild.id,
+            display_name=display_name,
+            player_id=player_id,
+            player_discord_id=discord_id,
+            user_id=user_id,
+            new_display_name=new_display_name,
+            new_tribe_id=new_tribe_id,
+            new_tribe_name=new_tribe_name,
+            new_tribe_iteration=new_tribe_iteration
+        )
+
+        # Send a response depending on the result
+        if success:
+            await interaction.response.send_message(
+                "Player updated successfully.", ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                "Failed to update player. Check the provided parameters.", ephemeral=True
+            )
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ServerCommands(bot))

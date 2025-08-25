@@ -266,10 +266,11 @@ def get_tribe(server_id: int,
               tribe_id: int | None = None,
               tribe_name: str | None = None,
               tribe_iteration: int = 1,
-              player_name: str | None = None,
+              player_display_name: str | None = None,
               player_id: int | None = None,
               player_discord_id: int | None = None,
               user_id: int | None = None,
+              order_id: int | None = None,
               season_id: int | None = None) -> list[Tribe]:
     
     conn = get_connection()
@@ -292,15 +293,15 @@ def get_tribe(server_id: int,
             query = "SELECT * FROM tribes WHERE season_id = ? AND tribe_name = ? AND iteration = ?"
             params = (season_id, tribe_name, tribe_iteration)
 
-        elif player_name is not None:
-            c.execute("SELECT tribe_id FROM players WHERE season_id = ? AND display_name = ?", (season_id, player_name))
+        elif player_display_name is not None:
+            c.execute("SELECT tribe_id FROM players WHERE season_id = ? AND display_name = ?", (season_id, player_display_name))
             result = c.fetchone()
             if result is None:
-                logger.warning(f"Player with display_name {player_name} not found.")
+                logger.warning(f"Player with display_name {player_display_name} not found.")
                 return []
             tribe_id = result[0]
             if tribe_id is None:
-                logger.warning(f"Player {player_name} exists but is not assigned to a tribe.")
+                logger.warning(f"Player {player_display_name} exists but is not assigned to a tribe.")
                 return []
             query = "SELECT * FROM tribes WHERE season_id = ? AND id = ?"
             params = (season_id, tribe_id)
@@ -354,6 +355,10 @@ def get_tribe(server_id: int,
 
             query = "SELECT * FROM tribes WHERE season_id = ? AND id = ?"
             params = (season_id, tribe_id)
+        
+        elif order_id is not None:
+            query = "SELECT * FROM tribes WHERE season_id = ? AND order_id = ?"
+            params = (season_id, order_id)
 
         else:
             query = "SELECT * FROM tribes WHERE season_id = ?"
@@ -365,7 +370,7 @@ def get_tribe(server_id: int,
         tribes = []
         for row in rows:
             row_dict = dict(row)
-            new_tribe = Tribe(tribe_id=row_dict["tribe_id"],
+            new_tribe = Tribe(tribe_id=row_dict["id"],
                               tribe_name=row_dict["tribe_name"],
                               iteration=row_dict["iteration"],
                               season_id=row_dict["season_id"],
@@ -382,3 +387,97 @@ def get_tribe(server_id: int,
     
     finally:
         conn.close()
+
+def edit_player(server_id: int,
+                player: Player | None = None,
+                display_name: str | None = None,
+                player_id: str | None = None,
+                player_discord_id: int | None = None,
+                user_id: int | None = None,
+                new_display_name: str | None = None,
+                new_tribe: Tribe | None = None,
+                new_tribe_id: int | None = None,
+                new_tribe_name: str | None = None,
+                new_tribe_iteration: int = 1) -> bool:
+    
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        c.execute("SELECT id FROM seasons WHERE server_id = ?", (server_id,))
+        result = c.fetchone()
+        if result is None:
+            logger.warning(f"Season with server_id {server_id} not found.")
+            return False
+        season_id = result[0]
+
+        if player is None:
+            if display_name is not None:
+                player = next(iter(get_player(server_id=server_id, display_name=display_name)), None)
+            elif player_id is not None:
+                player = next(iter(get_player(server_id=server_id, player_id=player_id)), None)
+            elif player_discord_id is not None:
+                player = next(iter(get_player(server_id=server_id, discord_id=player_discord_id)), None)
+            elif user_id is not None:
+                player = next(iter(get_player(server_id=server_id, user_id=user_id)), None)
+
+        if player is None:
+            logger.warning("No player found to edit (invalid ID, name, or discord_id).")
+            return False
+        
+        queries = []
+        params_list = []
+
+        if new_display_name is not None:
+            c.execute("SELECT 1 FROM players WHERE season_id = ? AND display_name = ?", (season_id, new_display_name))
+            if c.fetchone() is not None:
+                logger.warning(f"Player with display name {new_display_name} already exists in this season.")
+                return False
+
+            queries.append("UPDATE players SET display_name = ? WHERE id = ?")
+            params_list.append((new_display_name, player.player_id))
+
+        if new_tribe is None:
+            if new_tribe_id is not None:
+                new_tribe = next(iter(get_tribe(server_id=server_id, tribe_id=new_tribe_id)), None)
+                if new_tribe is None:
+                    logger.warning(f"Tribe with id {new_tribe_id} does not exist.")
+                    return False
+            
+            elif new_tribe_name is not None:
+                new_tribe = next(iter(get_tribe(server_id=server_id, tribe_name=new_tribe_name, tribe_iteration=new_tribe_iteration)), None)
+                if new_tribe is None:
+                    logger.warning(f"Tribe with name {new_tribe_name} and iteration {new_tribe_iteration} does not exist.")
+                    return False
+                
+        if new_tribe is not None:
+            queries.append("UPDATE players SET tribe_id = ? WHERE id = ?")
+            params_list.append((new_tribe.tribe_id, player.player_id))
+
+        conn.execute("BEGIN")
+        rows_updated = 0
+        for query, params in zip(queries, params_list):
+            c.execute(query, params)
+            rows_updated += c.rowcount
+        conn.commit()
+        print(f"Rows updated: {rows_updated}")
+        return rows_updated > 0
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error editing player: {e}")
+        return False
+
+    finally:
+        conn.close()
+
+def edit_tribe(server_id: int,
+                 tribe: Tribe | None = None,
+                 tribe_name: str | None = None,
+                 tribe_iteration: int = 1,
+                 tribe_id: int | None = None,
+                 new_tribe_name: str | None = None,
+                 new_tribe_iteration: int | None = None,
+                 new_color: str | None = None,
+                 new_order_id: int | None = None) -> bool:
+    pass
