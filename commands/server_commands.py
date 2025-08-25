@@ -21,7 +21,7 @@ class ServerCommands(commands.Cog):
                    new_display_name: str = None,
                    new_tribe_id: int = None,
                    new_tribe_name: str = None,
-                   new_tribe_iteration: int = 1):
+                   new_tribe_iteration: int = None):
         
         guild = interaction.guild
         if guild is None:
