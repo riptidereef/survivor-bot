@@ -558,3 +558,48 @@ def edit_tribe(server_id: int,
     
     finally:
         conn.close()
+
+def delete_season():
+    pass
+
+def delete_player(server_id: int,
+                  player: Player | None = None,
+                  display_name: str | None = None,
+                  player_id: str | None = None,
+                  player_discord_id: int | None = None,
+                  user_id: int | None = None,):
+    
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        if player is None:
+            player = next(iter(get_player(server_id=server_id,
+                                          player_id=player_id,
+                                          display_name=display_name,
+                                          user_id=user_id,
+                                          discord_id=player_discord_id)), None)
+        
+        if player is None:
+            logger.warning("No player found to delete.")
+        else:
+            c.execute("DELETE FROM players WHERE id = ?", (player.player_id,))
+            conn.commit()
+
+        if c.rowcount > 0:
+            logger.info(f"Deleted player {player.display_name} (id={player.player_id})")
+            return True
+        else:
+            logger.warning(f"Player {player.display_name} (id={player.player_id}) not found in database.")
+            return False
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error deleting player: {e}")
+        return False
+
+    finally:
+        conn.close()
+
+def delete_tribe():
+    pass
