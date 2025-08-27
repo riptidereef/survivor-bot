@@ -559,15 +559,39 @@ def edit_tribe(server_id: int,
     finally:
         conn.close()
 
-def delete_season():
-    pass
+def delete_season(server_id: int):
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        c.execute("SELECT id FROM seasons WHERE server_id = ?", (server_id,))
+        result = c.fetchone()
+        if result is None:
+            logger.warning(f"Season with server_id {server_id} not found.")
+            return False
+        season_id = result[0]
+
+        c.execute("BEGIN")
+        c.execute("DELETE FROM players WHERE season_id = ?", (season_id,))
+        c.execute("DELETE FROM tribes WHERE season_id = ?", (season_id,))
+        c.execute("DELETE FROM seasons WHERE id = ?", (season_id,))
+        conn.commit()
+        return True
+    
+    except Exception as e:
+        conn.rollback()
+        logger.warning(f"Error deleting season: {e}")
+        return False
+
+    finally:
+        conn.close()
 
 def delete_player(server_id: int,
                   player: Player | None = None,
                   display_name: str | None = None,
-                  player_id: str | None = None,
+                  player_id: int | None = None,
                   player_discord_id: int | None = None,
-                  user_id: int | None = None,):
+                  user_id: int | None = None):
     
     conn = get_connection()
     c = conn.cursor()
@@ -595,11 +619,46 @@ def delete_player(server_id: int,
 
     except Exception as e:
         conn.rollback()
-        logger.error(f"Error deleting player: {e}")
+        logger.warning(f"Error deleting player: {e}")
         return False
 
     finally:
         conn.close()
 
-def delete_tribe():
-    pass
+def delete_tribe(server_id: int,
+                 tribe: Tribe | None = None,
+                 tribe_name: str | None = None,
+                 tribe_iteration: int = 1,
+                 tribe_id: int | None = None,):
+    
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        if tribe is None:
+            tribe = next(iter(get_tribe(server_id=server_id,
+                                                  tribe_name=tribe_name,
+                                                  tribe_iteration=tribe_iteration,
+                                                  tribe_id=tribe_id)), None)
+            
+        if tribe is None:
+            logger.warning("No tribe found to delete.")
+            return False
+
+        c.execute("BEGIN")
+        c.execute("UPDATE players SET tribe_id = NULL WHERE tribe_id = ?", (tribe.tribe_id,))
+        updated_players = c.rowcount
+
+        c.execute("DELETE FROM tribes WHERE id = ?", (tribe.tribe_id,))
+        deleted_tribes = c.rowcount
+        conn.commit()
+
+        return (updated_players > 0) or (deleted_tribes > 0)
+
+    except Exception as e:
+        conn.rollback()
+        logger.warning(f"Error deleting tribe: {e}")
+        return False
+
+    finally:
+        conn.close()

@@ -15,12 +15,10 @@ class Tribe():
         self.color = color
         self.order_id = order_id
 
-    def __repr__(self):
-        return f"{self.get_tribe_string()}"
-    
-    def get_tribe_string(self):
         if self.iteration == 1:
-            return self.tribe_name
+            self.tribe_string = self.tribe_name
         else:
-            return f"{self.tribe_name} {self.iteration}.0"
-        
+            self.tribe_string = f"{self.tribe_name} {self.iteration}.0"
+
+    def __repr__(self):
+        return f"{self.tribe_string}"

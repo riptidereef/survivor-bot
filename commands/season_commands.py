@@ -2,8 +2,10 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from database import queries
+from models.player import Player
+from models.tribe import Tribe
 import re
-from utils.helpers import get_tribe_string
+from utils.helpers import autocomplete_players, autocomplete_tribes
 
 class SeasonCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -55,7 +57,8 @@ class SeasonCommands(commands.Cog):
             color=color, 
             order_id=order_id
         )
-        tribe_string = get_tribe_string(tribe_name, iteration)
+        new_tribe = next(iter(queries.get_tribe(server_id=server_id, tribe_name=tribe_name, tribe_iteration=iteration)), None)
+        tribe_string = new_tribe.tribe_string if new_tribe is not None else ""
 
         if result == 1:
             await interaction.followup.send(f"Successfully added tribe **{tribe_string}**.", ephemeral=False)
@@ -107,6 +110,15 @@ class SeasonCommands(commands.Cog):
         else:
             await interaction.followup.send("An unknown error occurred while trying to add the player.")
 
+    @app_commands.command(name="viewplayer", description="View or modify a player from the current season.")
+    @app_commands.autocomplete(player_name=autocomplete_players)
+    async def viewplayer(self, interaction: discord.Interaction, player_name: str):
+        await interaction.response.send_message(f"{player_name}")
+
+    @app_commands.command(name="viewtribe", description="View or modify a tribe from the current season.")
+    @app_commands.autocomplete(tribe_name=autocomplete_tribes)
+    async def viewtribe(self, interaction: discord.Interaction, tribe_name: str):
+        await interaction.response.send_message(f"{tribe_name}")
 
 
 async def setup(bot: commands.Bot):
