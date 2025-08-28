@@ -1,41 +1,22 @@
 import discord
+from discord import app_commands
 from discord.ext import commands
 import logging
 import os
-import asyncio
+from commands.season_commands import *
 from dotenv import load_dotenv
 from database import connection, queries
 
 load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
+token = os.getenv('DISCORD_TOKEN')
 
-log_dir = os.path.join(os.path.dirname(__file__), "logs")
-os.makedirs(log_dir, exist_ok=True)
-log_path = os.path.join(log_dir, "bot.log")
-
-logger = logging.getLogger("bot_logger")
-logger.setLevel(logging.DEBUG)
-
-file_handler = logging.FileHandler(log_path, encoding="utf-8", mode="w")
-formatter = logging.Formatter(
-    fmt='[%(asctime)s] [%(levelname)-8s] %(name)s: %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-file_handler.setFormatter(formatter)
-
-if not logger.handlers:
-    logger.addHandler(file_handler)
+handler = logging.FileHandler(filename='main.log', encoding='utf-8', mode='w')
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
-
-COGS = [
-    "commands.server_commands",
-    "commands.season_commands"
-]
 
 @bot.event
 async def on_ready():
@@ -63,21 +44,31 @@ async def on_ready():
     print(f"Finished syncing {user_count} new users.")
     print("Ready to go.")
 
-@bot.tree.error
-async def on_app_command_error(interaction, error):
-    logger.exception(f"Slash command error: {error}")
+bot.tree.add_command(app_commands.Command(
+    name="hello",
+    description="Say hello to the bot",
+    callback=hello
+))
 
-async def main():
-    async with bot:
-        for cog in COGS:
-            await bot.load_extension(cog)
+bot.tree.add_command(app_commands.Command(
+    name="registerseason",
+    description="Register a server as a new season in the database.",
+    callback=registerseason
+))
 
-        await bot.start(TOKEN)
+bot.tree.add_command(app_commands.Command(
+    name="addtribe",
+    description="Create a new tribe for the season and register it in the database.",
+    callback=addtribe
+))
 
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("Bot stopped manually.")
-    except Exception as e:
-        print(f"Bot crashed unexpectedly due to {e}.")
+bot.tree.add_command(app_commands.Command(
+    name="addplayer",
+    description="Add a new player to the season and register them in the database.",
+    callback=addplayer
+))
+
+
+
+
+bot.run(token, log_handler=handler, log_level=logging.DEBUG)

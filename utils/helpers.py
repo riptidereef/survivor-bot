@@ -3,6 +3,21 @@ from models.player import Player
 from models.tribe import Tribe
 from database import queries
 from discord import app_commands
+from typing import Iterable, TypeVar, Optional
+import re
+
+T = TypeVar("T")
+def get_first(iterable: Iterable[T], default: Optional[T] = None) -> Optional[T]:
+    """Return the first item of an iterable, or a default if empty."""
+    return next(iter(iterable), default)
+
+def parse_tribe_string(tribe_string: str):
+    match = re.match(r"^(.*?)(?:\s+(\d+)\.0)?$", tribe_string.strip())
+    if not match:
+        raise ValueError(f"Invalid tribe string: {tribe_string}")
+    tribe_name = match.group(1).strip()
+    iteration = int(match.group(2)) if match.group(2) else 1
+    return tribe_name, iteration
     
 async def autocomplete_players(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     guild = interaction.guild

@@ -225,7 +225,7 @@ def get_player(server_id: int,
             params = (season_id, discord_id)
 
         elif tribe_id is not None:
-            query = "SELECT * FROM players WHERE season_id = ? AND tribe_id = ?"
+            query = "SELECT * FROM players WHERE season_id = ? AND tribe_id = ? ORDER BY display_name"
             params = (season_id, tribe_id)
 
         elif tribe_name is not None:
@@ -233,11 +233,12 @@ def get_player(server_id: int,
                 SELECT p.* FROM players p
                 JOIN tribes t ON p.tribe_id = t.id
                 WHERE p.season_id = ? AND t.tribe_name = ? AND t.iteration = ?
+                ORDER BY p.display_name
             '''
             params = (season_id, tribe_name, tribe_iteration)
 
         else:
-            query = "SELECT * FROM players WHERE season_id = ?"
+            query = "SELECT * FROM players WHERE season_id = ? ORDER BY display_name"
             params = (season_id,)
     
         c.execute(query, params)
@@ -357,11 +358,11 @@ def get_tribe(server_id: int,
             params = (season_id, tribe_id)
         
         elif order_id is not None:
-            query = "SELECT * FROM tribes WHERE season_id = ? AND order_id = ?"
+            query = "SELECT * FROM tribes WHERE season_id = ? AND order_id = ? ORDER BY tribe_name"
             params = (season_id, order_id)
 
         else:
-            query = "SELECT * FROM tribes WHERE season_id = ?"
+            query = "SELECT * FROM tribes WHERE season_id = ? ORDER BY order_id DESC, tribe_name, iteration"
             params = (season_id,)
 
         c.execute(query, params)
