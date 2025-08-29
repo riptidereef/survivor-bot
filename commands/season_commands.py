@@ -3,6 +3,7 @@ from discord import app_commands
 from utils.helpers import *
 import re
 import config
+from interfaces.interfaces import *
 
 @app_commands.autocomplete(player_name=autocomplete_players)
 async def hello(interaction: discord.Interaction, player_name: str):
@@ -104,31 +105,23 @@ async def addplayer(interaction: discord.Interaction, player_name: str, discord_
     else:
         await interaction.followup.send("An unknown error occurred while trying to add the player.")
 
-async def setupcategories(interaction: discord.Interaction):
-    guild = interaction.guild
-    if not guild:
-        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
-        return
-    
-    await interaction.response.defer()
+async def setupserver(interaction: discord.Interaction):
+    # Categories
+    # Base Roles
+    # Players Roles
+    # Tribe Roles
+    # All
 
-    previous_category = None
-    for category_dict in config.CATEGORY_STRUCTURE:
+    embed = discord.Embed(
+        title="Configure Server"
+    )
 
-        if not category_dict.get("create_on_setup", False):
-            continue
+    embed.add_field(name="Server Categories", value="Create and arrange the server categories.", inline=False)
+    embed.add_field(name="(Future) Base Roles", value="Create and arrange the base roles (excluding host).", inline=False)
+    embed.add_field(name="Player Roles", value="Create and arrange the player roles.", inline=False)
+    embed.add_field(name="Tribe Roles", value="Create and arrange the tribe roles.", inline=False)
 
-        category_name = category_dict["name"]
-        category = discord.utils.get(guild.categories, name=category_name)
+    view = SetupServerButtons()
 
-        if category is None:
-            category = await guild.create_category(name=category_name)
+    await interaction.response.send_message(embed=embed, view=view)
 
-        if previous_category is None:
-            await category.move(beginning=True)
-        else:
-            await category.move(after=previous_category)
-
-        previous_category = category
-        
-    await interaction.followup.send("Done.")

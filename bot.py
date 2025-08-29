@@ -10,7 +10,7 @@ from database import connection, queries
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 
-handler = logging.FileHandler(filename='main.log', encoding='utf-8', mode='w')
+handler = logging.FileHandler(filename='logs/bot.log', encoding='utf-8', mode='w')
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -69,12 +69,10 @@ bot.tree.add_command(app_commands.Command(
 ))
 
 bot.tree.add_command(app_commands.Command(
-    name="setupcategories",
-    description="Arrange the server category structure.",
-    callback=setupcategories
+    name="setupserver",
+    description="Set up the server.",
+    callback=setupserver
 ))
 
 
-
-
-bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+bot.run(token, log_handler=handler, log_level=logging.INFO)
