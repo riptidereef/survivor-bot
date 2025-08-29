@@ -68,6 +68,12 @@ bot.tree.add_command(app_commands.Command(
     callback=addplayer
 ))
 
+bot.tree.add_command(app_commands.Command(
+    name="setupcategories",
+    description="Arrange the server category structure.",
+    callback=setupcategories
+))
+
 
 
 

@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from utils.helpers import *
 import re
+import config
 
 @app_commands.autocomplete(player_name=autocomplete_players)
 async def hello(interaction: discord.Interaction, player_name: str):
@@ -102,3 +103,32 @@ async def addplayer(interaction: discord.Interaction, player_name: str, discord_
         await interaction.followup.send(f"The user with Discord ID `{discord_id}` is already registered as another player in this season.")
     else:
         await interaction.followup.send("An unknown error occurred while trying to add the player.")
+
+async def setupcategories(interaction: discord.Interaction):
+    guild = interaction.guild
+    if not guild:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
+    
+    await interaction.response.defer()
+
+    previous_category = None
+    for category_dict in config.CATEGORY_STRUCTURE:
+
+        if not category_dict.get("create_on_setup", False):
+            continue
+
+        category_name = category_dict["name"]
+        category = discord.utils.get(guild.categories, name=category_name)
+
+        if category is None:
+            category = await guild.create_category(name=category_name)
+
+        if previous_category is None:
+            await category.move(beginning=True)
+        else:
+            await category.move(after=previous_category)
+
+        previous_category = category
+        
+    await interaction.followup.send("Done.")
