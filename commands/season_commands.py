@@ -142,5 +142,51 @@ async def setupplayer(interaction: discord.Interaction, player_name: str):
 
     await interaction.response.send_message(embed=embed, view=view)
 
+async def setupallplayers(interaction:discord.Interaction):
+    guild = interaction.guild
+    if guild is None:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
+    
+    players = queries.get_player(server_id=guild.id)
+    await interaction.response.send_message("Setting up all players...", ephemeral=True)
+
+    for player in players:
+        embed = await get_player_embed(guild=guild, player=player)
+        view = PlayerSetupButtons(player=player)
+        await interaction.followup.send(embed=embed, view=view)
+
+@app_commands.autocomplete(tribe_string=autocomplete_tribes)
+async def setuptribe(interaction: discord.Interaction, tribe_string: str):
+    guild = interaction.guild
+    if guild is None:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
+
+    tribe_name, iteration = parse_tribe_string(tribe_string)
+    tribe = get_first(queries.get_tribe(server_id=guild.id, tribe_name=tribe_name, tribe_iteration=iteration))
+
+    if not tribe:
+        await interaction.response.send_message("No matching tribe found.", ephemeral=True)
+        return
+    
+    embed = await get_tribe_embed(guild=guild, tribe=tribe)
+    view = TribeSetupButtons(tribe=tribe)
+
+    await interaction.response.send_message(embed=embed, view=view)
+
+async def setupalltribes(interaction: discord.Interaction):
+    guild = interaction.guild
+    if guild is None:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
+
+    tribes = queries.get_tribe(server_id=guild.id)
+    await interaction.response.send_message("Setting up all tribes...", ephemeral=True)
+
+    for tribe in tribes:
+        embed = await get_tribe_embed(guild=guild, tribe=tribe)
+        view = TribeSetupButtons(tribe=tribe)
+        await interaction.followup.send(embed=embed, view=view)
 
 

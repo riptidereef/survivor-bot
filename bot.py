@@ -80,5 +80,23 @@ bot.tree.add_command(app_commands.Command(
     callback=setupplayer
 ))
 
+bot.tree.add_command(app_commands.Command(
+    name="setupallplayers",
+    description="Send all player setup menus registered in the season.",
+    callback=setupallplayers
+))
+
+bot.tree.add_command(app_commands.Command(
+    name="setuptribe",
+    description="Set up a certain tribe on the season.",
+    callback=setuptribe
+))
+
+bot.tree.add_command(app_commands.Command(
+    name="setupalltribes",
+    description="Send all tribe setup menus registered in the season.",
+    callback=setupalltribes
+))
+
 
 bot.run(token, log_handler=handler, log_level=logging.INFO)
