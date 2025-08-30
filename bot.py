@@ -74,5 +74,11 @@ bot.tree.add_command(app_commands.Command(
     callback=setupserver
 ))
 
+bot.tree.add_command(app_commands.Command(
+    name="setupplayer",
+    description="Set up a certain player on the season.",
+    callback=setupplayer
+))
+
 
 bot.run(token, log_handler=handler, log_level=logging.INFO)

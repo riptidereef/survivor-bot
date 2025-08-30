@@ -182,6 +182,26 @@ def add_player(display_name: str, discord_id: int, server_id: int, tribe_name: s
     finally:
         conn.close()
 
+def get_user_discord_id(user_id: int):
+    conn = get_connection()
+    c = conn.cursor()
+    discord_id = None
+
+    try:
+        c.execute("SELECT discord_id FROM users WHERE id = ?", (user_id,))
+        row = c.fetchone()
+        if row:
+            discord_id = row[0]
+
+    except Exception as e:
+        logger.error(f"Error getting user: {e}")
+        return None
+
+    finally:
+        conn.close()
+
+    return discord_id
+
 def get_player(server_id: int, 
                player_id: int | None = None,
                display_name: str | None = None,

@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 from utils.helpers import *
 import re
-import config
 from interfaces.interfaces import *
 
 @app_commands.autocomplete(player_name=autocomplete_players)
@@ -124,4 +123,24 @@ async def setupserver(interaction: discord.Interaction):
     view = SetupServerButtons()
 
     await interaction.response.send_message(embed=embed, view=view)
+
+@app_commands.autocomplete(player_name=autocomplete_players)
+async def setupplayer(interaction: discord.Interaction, player_name: str):
+    guild = interaction.guild
+    if guild is None:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
+    
+    player = get_first(queries.get_player(server_id=guild.id, display_name=player_name))
+
+    if not player:
+        await interaction.response.send_message(f"{player_name} not found on this season.")
+        return
+    
+    embed = await get_player_embed(guild=guild, player=player)
+    view = PlayerSetupButtons(player=player)
+
+    await interaction.response.send_message(embed=embed, view=view)
+
+
 
