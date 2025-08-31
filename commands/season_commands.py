@@ -116,11 +116,13 @@ async def setupserver(interaction: discord.Interaction):
     )
 
     embed.add_field(name="Server Categories", value="Create and arrange the server categories.", inline=False)
-    embed.add_field(name="(Future) Base Roles", value="Create and arrange the base roles (excluding host).", inline=False)
+    embed.add_field(name="Confessional Categories", value="Arrange the confessional categories for all tribes.", inline=False)
+    embed.add_field(name="Submissions Categories", value="Arrange the submissions categories for all tribes.", inline=False)
+    embed.add_field(name="1-1's Categories", value="Arrange the 1-1's categories for all tribes.", inline=False)
     embed.add_field(name="Player Roles", value="Create and arrange the player roles.", inline=False)
     embed.add_field(name="Tribe Roles", value="Create and arrange the tribe roles.", inline=False)
 
-    view = SetupServerButtons()
+    view = ServerSetupButtons()
 
     await interaction.response.send_message(embed=embed, view=view)
 

@@ -70,6 +70,12 @@ async def arrange_player_roles(guild: discord.Guild):
                 player_role = await guild.create_role(name=player.display_name, color=discord.Color(int(player_tribe.color, 16)))
             else:
                 player_role = await guild.create_role(name=player.display_name)
+        else:
+            player_tribe = get_first(queries.get_tribe(server_id=guild.id, player_display_name=player.display_name))
+            if player_tribe is not None:
+                await player_role.edit(color=discord.Color(int(player_tribe.color, 16)))
+            else:
+                await player_role.edit(color=discord.Color.default)
 
         if previous_role is None:
             await player_role.move(beginning=True)
@@ -85,6 +91,8 @@ async def arrange_tribe_roles(guild: discord.Guild):
         tribe_role = discord.utils.get(guild.roles, name=tribe.tribe_string)
         if tribe_role is None:
             tribe_role = await guild.create_role(name=tribe.tribe_string, color=discord.Color(int(tribe.color, 16)))
+        else:
+            await tribe_role.edit(color=discord.Color(int(tribe.color, 16)))
 
         if previous_role is None:
             await tribe_role.move(beginning=True)
@@ -102,10 +110,7 @@ async def arrange_tribe_confessionals(guild: discord.Guild):
         category_name = f"{tribe.tribe_string} Confessionals"
         found_category = discord.utils.get(guild.categories, name=category_name)
         if found_category:
-            if not found_category.text_channels:
-                await found_category.delete()
-            else:
-                category_order.append(found_category)
+            category_order.append(found_category)
 
     prev_category = category_order[0]
     for category in category_order:
@@ -123,13 +128,28 @@ async def arrange_tribe_submissions(guild: discord.Guild):
         found_category = discord.utils.get(guild.categories, name=category_name)
 
         if found_category:
-            if not found_category.text_channels:
-                await found_category.delete()
-            else:
-                category_order.append(found_category)
+            category_order.append(found_category)
 
     prev_category = category_order[0]
     for category in category_order:
         if category is not submissions_category:
+            await category.move(after=prev_category)
+        prev_category = category
+
+async def arrange_tribe_1_1s(guild: discord.Guild):
+    one_on_ones_category = discord.utils.get(guild.categories, name="1-1's")
+    tribes_list = queries.get_tribe(server_id=guild.id)
+
+    category_order = [one_on_ones_category]
+    for tribe in tribes_list:
+        category_name = f"{tribe.tribe_string} 1-1's"
+        found_category = discord.utils.get(guild.categories, name=category_name)
+
+        if found_category:
+            category_order.append(found_category)
+
+    prev_category = category_order[0]
+    for category in category_order:
+        if category is not one_on_ones_category:
             await category.move(after=prev_category)
         prev_category = category

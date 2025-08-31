@@ -78,8 +78,6 @@ async def get_tribe_embed(guild: discord.Guild, tribe: Tribe) -> discord.Embed:
 
     return embed
 
-
-
 class PlayerSetupButtons(View):
     def __init__(self, player: Player):
         super().__init__(timeout=None)
@@ -170,7 +168,7 @@ class PlayerSetupButtons(View):
 
             await interaction.response.send_message(f"Successfully revealed player **{self.player.display_name}**.")
 
-class SetupServerButtons(View):
+class ServerSetupButtons(View):
     def __init__(self):
         super().__init__(timeout=None)
 
@@ -215,15 +213,8 @@ class SetupServerButtons(View):
             return
 
         await interaction.response.defer()
+        await arrange_tribe_1_1s(guild=guild)
         await interaction.followup.send("Done.")
-
-    @discord.ui.button(label="(Future) Base Roles", style=discord.ButtonStyle.blurple)
-    async def setupplayerroles(self, interaction: discord.Interaction, button: Button):
-        guild = interaction.guild
-        if not guild:
-            await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
-            return
-        await interaction.response.send_message("Setting up base roles.")
 
     @discord.ui.button(label="Player Roles", style=discord.ButtonStyle.blurple)
     async def setupplayerroles(self, interaction: discord.Interaction, button: Button):
@@ -344,7 +335,25 @@ class TribeSetupButtons(View):
 
     @discord.ui.button(label="1-1's", style=discord.ButtonStyle.blurple)
     async def setuptribe1_1s(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_message("1-1's")
+        guild = interaction.guild
+
+        category_name = f"{self.tribe.tribe_string} 1-1's"
+        category = discord.utils.get(guild.categories, name=category_name)
+        if not category:
+            category = await guild.create_category(name=category_name)
+        
+        tribe_players = queries.get_player(server_id=guild.id, tribe_id=self.tribe.tribe_id)
+        channels_list = []
+        for i in range(len(tribe_players)):
+            for j in range(i + 1, len(tribe_players)):
+                p1 = tribe_players[i]
+                p2 = tribe_players[j]
+                name1 = p1.display_name.strip().replace(" ", "").lower()
+                name2 = p2.display_name.strip().replace(" ", "").lower()
+                channel_name = f"{name1}-{name2}"
+                channels_list.append(channel_name)
+
+        await interaction.response.send_message("Done")
 
     @discord.ui.button(label="Arrange Categories", style=discord.ButtonStyle.blurple)
     async def arrangetribecategories(self, interaction: discord.Interaction, button: Button):
