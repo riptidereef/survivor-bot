@@ -185,6 +185,38 @@ class SetupServerButtons(View):
         await arrange_categories(guild)
         await interaction.followup.send("Done.")
 
+    @discord.ui.button(label="Confessional Categories", style=discord.ButtonStyle.blurple)
+    async def setupconfessionalcategories(self, interaction: discord.Interaction, button: Button):
+        guild = interaction.guild
+        if not guild:
+            await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        await arrange_tribe_confessionals(guild)
+        await interaction.followup.send("Done.")
+
+    @discord.ui.button(label="Submissions Categories", style=discord.ButtonStyle.blurple)
+    async def setupsubmissionscategories(self, interaction: discord.Interaction, button: Button):
+        guild = interaction.guild
+        if not guild:
+            await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        await arrange_tribe_submissions(guild)
+        await interaction.followup.send("Done.")
+
+    @discord.ui.button(label="1-1's Categories", style=discord.ButtonStyle.blurple)
+    async def setup1_1scategories(self, interaction: discord.Interaction, button: Button):
+        guild = interaction.guild
+        if not guild:
+            await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        await interaction.followup.send("Done.")
+
     @discord.ui.button(label="(Future) Base Roles", style=discord.ButtonStyle.blurple)
     async def setupplayerroles(self, interaction: discord.Interaction, button: Button):
         guild = interaction.guild
@@ -270,13 +302,45 @@ class TribeSetupButtons(View):
 
     @discord.ui.button(label="Submissions", style=discord.ButtonStyle.blurple)
     async def setuptribesubmissions(self, interaction: discord.Interaction, button: Button):
-        category_name = f"{self.tribe.tribe_string} Submissions"
+        guild = interaction.guild
 
-        await interaction.response.send_message("Submissions")
+        category_name = f"{self.tribe.tribe_string} Submissions"
+        category = discord.utils.get(guild.categories, name=category_name)
+        if not category:
+            category = await guild.create_category(name=category_name)
+        
+        tribe_players = queries.get_player(server_id=guild.id, tribe_id=self.tribe.tribe_id)
+        for player in tribe_players:
+            channel_name = f"{player.display_name.strip().lower().replace(' ', '-')}-submissions"
+            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            if not channel:
+                channel = await guild.create_text_channel(name=channel_name, category=category)
+            else:
+                if channel.category is not category:
+                    await channel.edit(category=category)
+
+        await interaction.response.send_message("Done")
 
     @discord.ui.button(label="Confessionals", style=discord.ButtonStyle.blurple)
     async def setuptribeconfessionals(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_message("Confessionals")
+        guild = interaction.guild
+
+        category_name = f"{self.tribe.tribe_string} Confessionals"
+        category = discord.utils.get(guild.categories, name=category_name)
+        if not category:
+            category = await guild.create_category(name=category_name)
+        
+        tribe_players = queries.get_player(server_id=guild.id, tribe_id=self.tribe.tribe_id)
+        for player in tribe_players:
+            channel_name = f"{player.display_name.strip().lower().replace(' ', '-')}-confessionals"
+            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            if not channel:
+                channel = await guild.create_text_channel(name=channel_name, category=category)
+            else:
+                if channel.category is not category:
+                    await channel.edit(category=category)
+
+        await interaction.response.send_message("Done")
 
     @discord.ui.button(label="1-1's", style=discord.ButtonStyle.blurple)
     async def setuptribe1_1s(self, interaction: discord.Interaction, button: Button):

@@ -55,8 +55,8 @@ CATEGORY_STRUCTURE = [
         "create_on_setup": True,
     },
     {
-        "name": "1-1",
-        "create_on_startup": False,
+        "name": "1-1's",
+        "create_on_setup": True,
     },
     {
         "name": "Closed",

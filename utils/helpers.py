@@ -92,3 +92,44 @@ async def arrange_tribe_roles(guild: discord.Guild):
             await tribe_role.move(above=previous_role)
 
         previous_role = tribe_role
+
+async def arrange_tribe_confessionals(guild: discord.Guild):
+    confessional_category = discord.utils.get(guild.categories, name="Confessionals")
+    tribes_list = queries.get_tribe(server_id=guild.id)
+
+    category_order = [confessional_category]
+    for tribe in tribes_list:
+        category_name = f"{tribe.tribe_string} Confessionals"
+        found_category = discord.utils.get(guild.categories, name=category_name)
+        if found_category:
+            if not found_category.text_channels:
+                await found_category.delete()
+            else:
+                category_order.append(found_category)
+
+    prev_category = category_order[0]
+    for category in category_order:
+        if category is not confessional_category:
+            await category.move(after=prev_category)
+        prev_category = category
+
+async def arrange_tribe_submissions(guild: discord.Guild):
+    submissions_category = discord.utils.get(guild.categories, name="Submissions")
+    tribes_list = queries.get_tribe(server_id=guild.id)
+
+    category_order = [submissions_category]
+    for tribe in tribes_list:
+        category_name = f"{tribe.tribe_string} Submissions"
+        found_category = discord.utils.get(guild.categories, name=category_name)
+
+        if found_category:
+            if not found_category.text_channels:
+                await found_category.delete()
+            else:
+                category_order.append(found_category)
+
+    prev_category = category_order[0]
+    for category in category_order:
+        if category is not submissions_category:
+            await category.move(after=prev_category)
+        prev_category = category
