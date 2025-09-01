@@ -1,4 +1,5 @@
 import discord
+from discord import SelectOption
 from discord.ui import View, Button, Select, Modal, TextInput
 from models.player import Player
 from models.tribe import Tribe
@@ -127,6 +128,31 @@ class PlayerSetupButtons(View):
                 f"Created chat {new_channel.mention}.", ephemeral=True
             )
 
+    @discord.ui.button(label="Swap Tribe", style=discord.ButtonStyle.green)
+    async def player_swap_tribe(self, interaction: discord.Interaction, button: Button):
+        guild = interaction.guild
+        tribes_list = queries.get_tribe(server_id=guild.id)
+        options = [SelectOption(label=tribe.tribe_string, value=tribe.tribe_id) for tribe in tribes_list]
+        dropdown_view = TribeDropdownMenuView(player=self.player, options=options)
+
+        player_tribe = get_first(queries.get_tribe(server_id=guild.id, player_id=self.player.player_id))
+        if player_tribe:
+            title=f"**{self.player.display_name}**"
+            field_name=f"Current Tribe: {player_tribe.tribe_string}"
+            color=discord.Color(int(player_tribe.color, 16))
+        else:
+            title=f"**{self.player.display_name}**"
+            field_name = "Unassigned Tribe"
+            color=discord.Color.default
+
+        old_tribe_embed = discord.Embed(
+            title=title,
+            color=color
+        )
+        old_tribe_embed.add_field(name=field_name, value="Select a new tribe")
+
+        await interaction.response.send_message(embed=old_tribe_embed, view=dropdown_view)
+
     @discord.ui.button(label="Reveal Player", style=discord.ButtonStyle.green)
     async def player_reveal_callback(self, interaction: discord.Interaction, button: Button):
         guild = interaction.guild
@@ -167,6 +193,54 @@ class PlayerSetupButtons(View):
                 await user.add_roles(*roles_to_add)
 
             await interaction.response.send_message(f"Successfully revealed player **{self.player.display_name}**.")
+
+class TribeDropdownMenuView(View):
+    def __init__(self, player: Player, options: list[SelectOption]):
+        super().__init__(timeout=None)
+        self.add_item(TribeDropdownMenuSelect(player=player, options=options))
+
+class TribeDropdownMenuSelect(Select):
+    def __init__(self, player: Player, options: list[SelectOption]):
+        super().__init__(placeholder="Choose a tribe...", options=options)
+        self.player = player
+
+    async def callback(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        selected_tribe_id = int(self.values[0])
+
+        new_tribe = get_first(queries.get_tribe(server_id=guild.id, tribe_id=selected_tribe_id))
+        if new_tribe is None:
+            await interaction.response.send_message("No tribe found.")
+            return
+        
+        old_tribe = get_first(queries.get_tribe(server_id=guild.id, tribe_id=self.player.tribe_id))
+        if old_tribe:
+            old_tribe_name = old_tribe.tribe_string
+        else:
+            old_tribe_name = "Unassigned"
+        
+        embed = discord.Embed(
+            title=f"{self.player.display_name}",
+            color=discord.Color(int(new_tribe.color, 16))
+        )
+        embed.add_field(name=f"Old Tribe: {old_tribe_name}", value="", inline=False)
+        embed.add_field(name=f"New Tribe: {new_tribe.tribe_string}", value="", inline=False)
+
+        view = TribeSwapConfirmView()
+
+        await interaction.response.send_message(embed=embed, view=view)
+
+class TribeSwapConfirmView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
+    async def confirm_swap_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("Swapping Tribe")
+
+    @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
+    async def cancel_swap_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("Cancel Tribe Swap")
 
 class ServerSetupButtons(View):
     def __init__(self):
@@ -350,15 +424,28 @@ class TribeSetupButtons(View):
                 p2 = tribe_players[j]
                 name1 = p1.display_name.strip().replace(" ", "").lower()
                 name2 = p2.display_name.strip().replace(" ", "").lower()
-                channel_name = f"{name1}-{name2}"
-                channels_list.append(channel_name)
+                full_channel_name = f"{name1}-{name2}"
+                channels_list.append(full_channel_name)
+
+        # FIXME: 11 or more users needs to be addressed
+        for channel_name in channels_list:
+            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            if channel:
+                await channel.edit(category=category)
+            else:
+                await guild.create_text_channel(name=channel_name, category=category)
 
         await interaction.response.send_message("Done")
 
-    @discord.ui.button(label="Arrange Categories", style=discord.ButtonStyle.blurple)
-    async def arrangetribecategories(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_message("Arrange Categories")
-
-    @discord.ui.button(label="Reveal Tribe", style=discord.ButtonStyle.green)
-    async def arrangetribecategories(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_message("Reveal Tribe")
+    @discord.ui.button(label="Arrange Tribe Categories", style=discord.ButtonStyle.blurple)
+    async def setupcategories(self, interaction: discord.Interaction, button: Button):
+        guild = interaction.guild
+        if not guild:
+            await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+            return
+    
+        await interaction.response.defer()
+        await arrange_tribe_submissions(guild)
+        await arrange_tribe_confessionals(guild)
+        await arrange_tribe_1_1s(guild)
+        await interaction.followup.send("Done.")
