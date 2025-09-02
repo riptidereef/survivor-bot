@@ -436,10 +436,13 @@ class TribeSetupButtons(View):
         guild = interaction.guild
         await interaction.response.defer()
 
+        one_on_ones_category = discord.utils.get(guild.categories, name="1-1's")
+
         category_name = f"{self.tribe.tribe_string} 1-1's"
         category = discord.utils.get(guild.categories, name=category_name)
         if not category:
             category = await guild.create_category(name=category_name)
+            await category.move(after=one_on_ones_category)
         
         tribe_players = queries.get_player(server_id=guild.id, tribe_id=self.tribe.tribe_id)
         channels_list = []
@@ -452,6 +455,18 @@ class TribeSetupButtons(View):
                 full_channel_name = f"{name1}-{name2}"
                 channels_list.append(full_channel_name)
 
+        channels_to_close = []
+        season_players = queries.get_player(server_id=guild.id)
+        for p1 in tribe_players:
+            for p2 in season_players:
+                if p1 != p2:
+                    if p1.tribe_id != p2.tribe_id:
+                        name1 = p1.display_name.strip().replace(" ", "").lower()
+                        name2 = p2.display_name.strip().replace(" ", "").lower()
+                        full_channel_name = "-".join(sorted([name1, name2]))
+                        if full_channel_name not in channels_to_close:
+                            channels_to_close.append(full_channel_name)
+
         # FIXME: 11 or more users needs to be addressed
         for channel_name in sorted(channels_list):
             channel = discord.utils.get(guild.text_channels, name=channel_name)
@@ -459,6 +474,16 @@ class TribeSetupButtons(View):
                 await channel.edit(category=category)
             else:
                 await guild.create_text_channel(name=channel_name, category=category)
+
+        closed_category = discord.utils.get(guild.categories, name="Closed")
+        for channel_name in channels_to_close:
+            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            if channel:
+                await channel.edit(category=closed_category)
+            else:
+                continue
+
+        await alphabetize_category(category=category)
 
         await interaction.followup.send("Done")
 
