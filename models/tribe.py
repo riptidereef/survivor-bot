@@ -1,3 +1,5 @@
+import discord
+
 class Tribe():
     def __init__(
             self,
@@ -22,3 +24,22 @@ class Tribe():
 
     def __repr__(self):
         return f"{self.tribe_string}"
+    
+    def __eq__(self, other):
+        if not isinstance(other, Tribe):
+            return NotImplemented
+        return (
+            self.tribe_id == other.tribe_id
+            and self.tribe_name == other.tribe_name
+            and self.iteration == other.iteration
+            and self.season_id == other.season_id
+            and self.color == other.color
+            and self.order_id == other.order_id
+        )
+    
+    def mention(self, guild: discord.Guild):
+        tribe_role = discord.utils.get(guild.roles, name=self.tribe_string)
+        if tribe_role:
+            return tribe_role.mention
+        else:
+            return ""

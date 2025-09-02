@@ -4,6 +4,8 @@ from discord import app_commands
 from typing import Iterable, TypeVar, Optional
 import re
 import config
+from models.player import Player
+from models.tribe import Tribe
 
 T = TypeVar("T")
 def get_first(iterable: Iterable[T], default: Optional[T] = None) -> Optional[T]:
@@ -136,7 +138,7 @@ async def arrange_tribe_submissions(guild: discord.Guild):
             await category.move(after=prev_category)
         prev_category = category
 
-async def arrange_tribe_1_1s(guild: discord.Guild):
+async def arrange_tribe_1_1_categories(guild: discord.Guild):
     one_on_ones_category = discord.utils.get(guild.categories, name="1-1's")
     tribes_list = queries.get_tribe(server_id=guild.id)
 
@@ -153,3 +155,18 @@ async def arrange_tribe_1_1s(guild: discord.Guild):
         if category is not one_on_ones_category:
             await category.move(after=prev_category)
         prev_category = category
+
+async def swap_player_tribe(guild: discord.Guild, player: Player, new_tribe: Tribe):
+    player.tribe_id = new_tribe.tribe_id
+
+    queries.edit_player(server_id=guild.id, player=player, new_tribe=new_tribe)
+
+    tribe_role = discord.utils.get(guild.roles, name=new_tribe.tribe_string)
+    player_role = discord.utils.get(guild.roles, name=player.display_name)
+    player_user = await player.get_discord_user(guild)
+
+    if tribe_role and player_user:
+        await player_user.add_roles(tribe_role)
+
+    if player_role:
+        await player_role.edit(color=discord.Color(int(new_tribe.color, 16)))

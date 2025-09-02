@@ -4,6 +4,73 @@ from utils.helpers import *
 import re
 from interfaces.interfaces import *
 
+async def deleteallchannels(interaction: discord.Interaction):
+    guild = interaction.guild
+    await interaction.response.defer()
+    for channel in guild.channels:
+        await channel.delete()
+    await interaction.followup.send("", ephemeral=True)
+
+async def clearallroles(interaction: discord.Interaction):
+    guild = interaction.guild
+    bot_member = guild.me
+    host_role = discord.utils.get(guild.roles, name="Host")
+
+    await interaction.response.defer()
+
+    if host_role is None:
+        await interaction.response.send_message("Host role not found.", ephemeral=True)
+        return
+
+    for member in guild.members:
+        if member == bot_member:
+            continue
+        if host_role in member.roles or any(r > host_role for r in member.roles):
+            continue
+
+        roles_to_remove = [r for r in member.roles if r != guild.default_role]
+        if roles_to_remove:
+            try:
+                await member.remove_roles(*roles_to_remove, reason="Clearing all roles")
+            except discord.Forbidden:
+                print(f"Missing permissions to edit {member}.")
+            except Exception as e:
+                print(f"Error removing roles from {member}: {e}")
+
+    await interaction.followup.send("All roles cleared (except Host and the bot).")
+
+async def deleteroles(interaction: discord.Interaction):
+    EXEMPT_ROLES = {
+        'Host',
+        'Survivor Bot',
+        'Immunity',
+        'Castaway',
+        'Trusted Viewer',
+        'Viewer'
+    }
+    await interaction.response.defer()
+    guild = interaction.guild
+    if guild is None:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
+    bot_member = guild.me
+    deleted_roles = []
+    for role in guild.roles:
+        if role.name in EXEMPT_ROLES or role.is_default():
+            continue
+        if role >= bot_member.top_role:
+            print(f"Cannot delete role {role.name} (higher than bot's role)")
+            continue
+        try:
+            await role.delete(reason="Deleting all non-exempt roles")
+            deleted_roles.append(role.name)
+        except discord.Forbidden:
+            print(f"Missing permissions to delete role: {role.name}")
+        except Exception as e:
+            print(f"Error deleting role {role.name}: {e}")
+
+    await interaction.followup.send("Done", ephemeral=True)
+
 @app_commands.autocomplete(player_name=autocomplete_players)
 async def hello(interaction: discord.Interaction, player_name: str):
     await interaction.response.send_message(f"Hello {player_name}!")

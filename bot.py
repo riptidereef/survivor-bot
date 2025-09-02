@@ -51,6 +51,24 @@ bot.tree.add_command(app_commands.Command(
 ))
 
 bot.tree.add_command(app_commands.Command(
+    name="deleteallchannels",
+    description="Delete all current channels and categories in the server.",
+    callback=deleteallchannels
+))
+
+bot.tree.add_command(app_commands.Command(
+    name="clearallroles",
+    description="Clear all roles except for the host.",
+    callback=clearallroles
+))
+
+bot.tree.add_command(app_commands.Command(
+    name="deleteroles",
+    description="Delete all player and tribe roles.",
+    callback=deleteroles
+))
+
+bot.tree.add_command(app_commands.Command(
     name="registerseason",
     description="Register a server as a new season in the database.",
     callback=registerseason

@@ -60,14 +60,14 @@ CATEGORY_STRUCTURE = [
     },
     {
         "name": "Closed",
-        "create_on_startup": False,
+        "create_on_setup": True,
     },
     {
         "name": "Archive",
-        "create_on_startup": False,
+        "create_on_setup": True,
     },
     {
         "name": "1-1's Archive",
-        "create_on_startup": False,
+        "create_on_setup": True,
     }
 ]

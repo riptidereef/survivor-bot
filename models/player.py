@@ -1,4 +1,5 @@
 from database import queries
+import discord
 
 class Player():
     def __init__(
@@ -21,5 +22,18 @@ class Player():
     def get_discord_id(self):
         return queries.get_user_discord_id(self.user_id)
     
-        
+    def mention(self, guild: discord.Guild):
+        player_role = discord.utils.get(guild.roles, name=self.display_name)
+        if player_role:
+            return player_role.mention
+        else:
+            return ""
+    
+    async def get_discord_user(self, guild: discord.Guild) -> discord.Member:
+        discord_id = self.get_discord_id()
+        try:
+            member = await guild.fetch_member(discord_id)
+            return member
+        except discord.NotFound:
+            return None
         
