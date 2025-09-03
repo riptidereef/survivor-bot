@@ -521,6 +521,10 @@ class SeasonSetupButtons(View):
 
         await interaction.response.send_message(embed=embed, view=view)
 
+    @discord.ui.button(label="Tribal Council", style=discord.ButtonStyle.blurple)
+    async def tribal_council_callback(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("Tribal Council")
+
 class TribeSwapView(View):
     def __init__(self, guild: discord.Guild):
         super().__init__(timeout=None)
