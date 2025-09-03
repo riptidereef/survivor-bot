@@ -116,5 +116,12 @@ bot.tree.add_command(app_commands.Command(
     callback=setupalltribes
 ))
 
+bot.tree.add_command(app_commands.Command(
+    name="setupseason",
+    description="Perform a season action.",
+    callback=setupseason
+))
+
+
 
 bot.run(token, log_handler=handler, log_level=logging.INFO)

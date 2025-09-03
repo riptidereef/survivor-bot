@@ -258,4 +258,17 @@ async def setupalltribes(interaction: discord.Interaction):
         view = TribeSetupButtons(tribe=tribe)
         await interaction.followup.send(embed=embed, view=view)
 
+async def setupseason(interaction: discord.Interaction):
+    guild = interaction.guild
+    if guild is None:
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
+        return
 
+    embed = discord.Embed(
+        title="Season Actions"
+    )
+    embed.add_field(name="Tribe Swap", value="Perform a tribe swap for a variable number of tribes.")
+
+    view = SeasonSetupButtons()
+
+    await interaction.response.send_message(embed=embed, view=view)

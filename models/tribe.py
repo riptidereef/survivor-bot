@@ -37,6 +37,9 @@ class Tribe():
             and self.order_id == other.order_id
         )
     
+    def __hash__(self):
+        return hash(self.tribe_id)
+    
     def mention(self, guild: discord.Guild):
         tribe_role = discord.utils.get(guild.roles, name=self.tribe_string)
         if tribe_role:

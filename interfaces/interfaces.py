@@ -199,6 +199,10 @@ class TribeDropdownMenuView(View):
         super().__init__(timeout=None)
         self.add_item(TribeDropdownMenuSelect(player=player, options=options))
 
+    @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
+    async def cancel_swap_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.message.delete()
+
 class TribeDropdownMenuSelect(Select):
     def __init__(self, player: Player, options: list[SelectOption]):
         super().__init__(placeholder="Choose a tribe...", options=options)
@@ -234,15 +238,16 @@ class TribeDropdownMenuSelect(Select):
         if old_tribe is not None and old_tribe.order_id >= new_tribe.order_id:
             embed.add_field(name="⚠️ Warning ⚠️", value="Swapping to a tribe with a matching or lower order_id may result in unexpected behavior.")
 
-        view = TribeSwapConfirmView(player=self.player, new_tribe=new_tribe)
+        view = TribeSwapConfirmView(player=self.player, new_tribe=new_tribe, prev_message=interaction.message)
 
         await interaction.response.send_message(embed=embed, view=view)
 
 class TribeSwapConfirmView(View):
-    def __init__(self, player: Player, new_tribe: Tribe):
+    def __init__(self, player: Player, new_tribe: Tribe, prev_message: discord.Message):
         super().__init__(timeout=None)
         self.player = player
         self.new_tribe = new_tribe
+        self.prev_message = prev_message
 
     @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
     async def confirm_swap_button(self, interaction: discord.Interaction, button: Button):
@@ -258,12 +263,9 @@ class TribeSwapConfirmView(View):
 
     @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
     async def cancel_swap_button(self, interaction: discord.Interaction, button: Button):
-        for child in self.children:
-            child.disabled = True
-
-        await interaction.message.edit(view=self)
-        await interaction.response.defer(ephemeral=True)
-
+        await interaction.message.delete()
+        if self.prev_message:
+            await self.prev_message.delete()
 
 class ServerSetupButtons(View):
     def __init__(self):
@@ -499,3 +501,181 @@ class TribeSetupButtons(View):
         await arrange_tribe_confessionals(guild)
         await arrange_tribe_1_1_categories(guild)
         await interaction.followup.send("Done.")
+
+class SeasonSetupButtons(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Tribe Swap", style=discord.ButtonStyle.blurple)
+    async def tribe_swap_callback(self, interaction: discord.Interaction, button: Button):
+        guild = interaction.guild
+
+        embed = discord.Embed(
+            title="Perform Tribe Swap"
+        )
+        embed.add_field(name="From Tribe(s):", value="(None)", inline=False)
+        embed.add_field(name="To Tribe(s):", value="(None)", inline=False)
+        view = TribeSwapView(guild)
+
+        await interaction.response.send_message(embed=embed, view=view)
+
+class TribeSwapView(View):
+    def __init__(self, guild: discord.Guild):
+        super().__init__(timeout=None)
+        self.guild = guild
+        self.from_tribes = set()
+        self.to_tribes = set()
+
+        tribes_list = queries.get_tribe(server_id=guild.id)
+        options = [
+            discord.SelectOption(label=tribe.tribe_string, value=str(tribe.tribe_id))
+            for tribe in tribes_list
+        ]
+
+        self.from_select = discord.ui.Select(
+            placeholder="From tribe(s)...",
+            options=options,
+            min_values=1,
+            max_values=len(options)
+        )
+        self.from_select.callback = self.from_select_callback
+        self.add_item(self.from_select)
+
+        self.to_select = discord.ui.Select(
+            placeholder="To tribe(s)...",
+            options=options,
+            min_values=1,
+            max_values=len(options)
+        )
+        self.to_select.callback = self.to_select_callback
+        self.add_item(self.to_select)
+
+    async def update_embed(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="Perform Tribe Swap")
+
+        from_tribes_objects = [get_first(queries.get_tribe(server_id=interaction.guild.id, tribe_id=id)) for id in self.from_tribes]
+        to_tribes_objects = [get_first(queries.get_tribe(server_id=interaction.guild.id, tribe_id=id)) for id in self.to_tribes]
+
+        embed.add_field(
+            name="From Tribe(s):",
+            value="".join(t.mention(self.guild) for t in from_tribes_objects) or "(None)",
+            inline=False,
+        )
+        embed.add_field(
+            name="To Tribe(s):",
+            value="".join(t.mention(self.guild) for t in to_tribes_objects) or "(None)",
+            inline=False,
+        )
+
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def from_select_callback(self, interaction: discord.Interaction):
+        self.from_tribes = set(self.from_select.values)
+        await self.update_embed(interaction)
+
+    async def to_select_callback(self, interaction: discord.Interaction):
+        self.to_tribes = set(self.to_select.values)
+        await self.update_embed(interaction)
+
+    @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
+    async def confirm_swap(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = interaction.guild
+
+        from_tribes_objects = [get_first(queries.get_tribe(server_id=interaction.guild.id, tribe_id=id)) for id in self.from_tribes]
+        to_tribes_objects = [get_first(queries.get_tribe(server_id=interaction.guild.id, tribe_id=id)) for id in self.to_tribes]
+
+        embeds_list = []
+        for tribe in to_tribes_objects:
+            embed = discord.Embed(
+                title=f"{tribe.tribe_name}",
+                color=discord.Color(int(tribe.color, 16))
+            )
+            embed.add_field(name="Players", value="(No Players Added)")
+            embeds_list.append(embed)
+
+        view = TribeSwapPlayersView(guild=guild, from_tribes=from_tribes_objects, to_tribes=to_tribes_objects, prev_message=interaction.message)
+        await interaction.response.send_message(embeds=embeds_list, view=view)
+
+    @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
+    async def cancel_swap_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.message.delete()
+
+class TribeSwapPlayersView(View):
+    def __init__(self, guild: discord.Guild, from_tribes: list[Tribe], to_tribes: list[Tribe], prev_message: discord.Message):
+        super().__init__(timeout=None)
+        self.guild = guild
+        self.from_tribes = from_tribes
+        self.to_tribes = to_tribes
+        self.prev_message = prev_message
+
+        self.players_to_swap: list[Player] = []
+        for tribe in from_tribes:
+            swap_players = queries.get_player(server_id=guild.id, tribe_id=tribe.tribe_id)
+            self.players_to_swap.extend(swap_players)
+        self.players_to_swap.sort(key=lambda p: p.display_name)
+
+        self.assignments: dict[Tribe, list[Player]] = {tribe: [] for tribe in self.to_tribes}
+        
+        options = [
+            discord.SelectOption(label=p.display_name, value=str(p.player_id))
+            for p in self.players_to_swap
+        ]
+
+        for tribe in self.to_tribes:
+            select = discord.ui.Select(
+                custom_id=f"{tribe.tribe_id}",
+                placeholder=f"Add players to {tribe.tribe_name}...",
+                min_values=0,
+                max_values=len(options),
+                options=options
+            )
+            select.callback = self.make_callback(tribe=tribe, select=select)
+            self.add_item(select)
+
+    def make_callback(self, tribe: Tribe, select: discord.ui.Select):
+        async def callback(interaction: discord.Interaction):
+            self.assignments[tribe] = [get_first(queries.get_player(server_id=self.guild.id, player_id=int(s))) for s in select.values]
+            await self.update_embeds(interaction)
+        return callback
+
+    async def update_embeds(self, interaction: discord.Interaction):
+        
+        embeds_list = []
+        for tribe in self.to_tribes:
+            embed = discord.Embed(
+                title=f"{tribe.tribe_name}",
+                color=discord.Color(int(tribe.color, 16))
+            )
+            players_list = self.assignments[tribe]
+            players_mentions = [p.mention(self.guild) for p in players_list]
+            embed.add_field(name="Players", value="".join(players_mentions))
+            embeds_list.append(embed)
+
+        await interaction.response.edit_message(embeds=embeds_list, view=self)
+
+    @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
+    async def confirm_swap_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = interaction.guild
+
+        await interaction.response.defer()
+
+        seen = set()
+        for lst in self.assignments.values():
+            for player in lst:
+                if player not in seen:
+                    seen.add(player)
+                else:
+                    await interaction.response.send_message(f"Cannot add {player.display_name} to multiple tribes.", ephemeral=True)
+                    return
+
+        for tribe, lst in self.assignments.items():
+            for player in lst:
+                await swap_player_tribe(guild=guild, player=player, new_tribe=tribe)
+            
+        await interaction.followup.send(f"Swapping players: {self.assignments}", ephemeral=True)
+
+    @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
+    async def cancel_swap_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.message.delete()
+        if self.prev_message:
+            await self.prev_message.delete()

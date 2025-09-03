@@ -23,6 +23,9 @@ class Player():
         if isinstance(other, Player):
             return self.player_id == other.player_id
         return False
+    
+    def __hash__(self):
+        return hash(self.player_id)
 
     def get_discord_id(self):
         return queries.get_user_discord_id(self.user_id)

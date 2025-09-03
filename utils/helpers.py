@@ -6,6 +6,7 @@ import re
 import config
 from models.player import Player
 from models.tribe import Tribe
+import asyncio
 
 T = TypeVar("T")
 def get_first(iterable: Iterable[T], default: Optional[T] = None) -> Optional[T]:
@@ -165,7 +166,10 @@ async def swap_player_tribe(guild: discord.Guild, player: Player, new_tribe: Tri
     player_role = discord.utils.get(guild.roles, name=player.display_name)
     player_user = await player.get_discord_user(guild)
 
-    if tribe_role and player_user:
+    if player_user:
+        castaway_role = discord.utils.get(player_user.roles, name="Castaway")
+
+    if castaway_role and tribe_role and player_user:
         await player_user.add_roles(tribe_role)
 
     if player_role:
