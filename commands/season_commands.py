@@ -110,27 +110,22 @@ async def addtribe(interaction: discord.Interaction, tribe_name: str, iteration:
         return
 
     server_id = guild.id
-    result = queries.add_tribe(
-            tribe_name=tribe_name, 
-            server_id=server_id, 
-            iteration=iteration, 
-            color=color, 
-            order_id=order_id
-    )
 
-    new_tribe = get_first(queries.get_tribe(server_id=server_id, tribe_name=tribe_name, tribe_iteration=iteration))
-    tribe_string = new_tribe.tribe_string if new_tribe is not None else ""
-
-    if result == 1:
-        await interaction.followup.send(f"Successfully added tribe **{tribe_string}**.", ephemeral=False)
-    elif result == 0:
-        await interaction.followup.send(f"Tribe **{tribe_string}** already exists in the database for this season.", ephemeral=True)
-    elif result == -1:
-        await interaction.followup.send(f"An unexpected error occurred while adding tribe **{tribe_string}**. Please try again or check the logs.", ephemeral=True)
-    elif result == -2:
-        await interaction.followup.send(f"Cannot add tribe **{tribe_string}** because no season is registered for this server. Please register a season first using `/registerseason`.", ephemeral=True)
+    if iteration == 1:
+        tribe_string = tribe_name
     else:
-        await interaction.followup.send(f"Unknown result code `{result}` encountered while adding tribe **{tribe_string}**. Please report this issue.", ephemeral=True)
+        tribe_string = f"{tribe_name} {iteration}.0"
+
+    embed = discord.Embed(
+        title=f"Preview: {tribe_string}",
+        color=discord.Color(int(color, 16))
+    )
+    embed.add_field(name="Color", value=color, inline=False)
+    embed.add_field(name="Order ID:", value=order_id, inline=False)
+
+    view = VerifyTribeCreateView(tribe_name=tribe_name, iteration=iteration, color=color, order_id=order_id)
+
+    await interaction.followup.send(embed=embed, view=view)
 
 @app_commands.describe(
     player_name="The name of the player to be added.", 

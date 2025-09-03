@@ -157,6 +157,8 @@ class PlayerSetupButtons(View):
     async def player_reveal_callback(self, interaction: discord.Interaction, button: Button):
         guild = interaction.guild
 
+        await interaction.response.defer()
+
         player_tribe = get_first(queries.get_tribe(server_id=guild.id, player_display_name=self.player.display_name))
 
         viewer_role = discord.utils.get(guild.roles, name="Viewer")
@@ -192,7 +194,7 @@ class PlayerSetupButtons(View):
             if roles_to_add is not None:
                 await user.add_roles(*roles_to_add)
 
-            await interaction.response.send_message(f"Successfully revealed player **{self.player.display_name}**.")
+            await interaction.followup.send(f"Successfully revealed player **{self.player.display_name}**.")
 
 class TribeDropdownMenuView(View):
     def __init__(self, player: Player, options: list[SelectOption]):
@@ -679,3 +681,50 @@ class TribeSwapPlayersView(View):
         await interaction.message.delete()
         if self.prev_message:
             await self.prev_message.delete()
+
+class VerifyTribeCreateView(View):
+    def __init__(self, tribe_name: str, iteration: int, color: str, order_id: int):
+        super().__init__(timeout=None)
+        self.tribe_name = tribe_name
+        self.iteration = iteration
+        self.color = color
+        self.order_id = order_id
+
+    @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
+    async def confirm_swap_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = interaction.guild
+        server_id = guild.id
+
+        await interaction.response.defer()
+        
+        result = queries.add_tribe(
+            tribe_name=self.tribe_name, 
+            server_id=server_id, 
+            iteration=self.iteration, 
+            color=self.color, 
+            order_id=self.order_id
+        )
+
+        new_tribe = get_first(queries.get_tribe(server_id=server_id, tribe_name=self.tribe_name, tribe_iteration=self.iteration))
+        tribe_string = new_tribe.tribe_string if new_tribe is not None else ""
+
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                child.disabled = True
+
+        await interaction.message.edit(view=self)
+
+        if result == 1:
+            await interaction.followup.send(f"Successfully added tribe **{tribe_string}**.", ephemeral=False)
+        elif result == 0:
+            await interaction.followup.send(f"Tribe **{tribe_string}** already exists in the database for this season.", ephemeral=True)
+        elif result == -1:
+            await interaction.followup.send(f"An unexpected error occurred while adding tribe **{tribe_string}**. Please try again or check the logs.", ephemeral=True)
+        elif result == -2:
+            await interaction.followup.send(f"Cannot add tribe **{tribe_string}** because no season is registered for this server. Please register a season first using `/registerseason`.", ephemeral=True)
+        else:
+            await interaction.followup.send(f"Unknown result code `{result}` encountered while adding tribe **{tribe_string}**. Please report this issue.", ephemeral=True)
+
+    @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
+    async def cancel_swap_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.message.delete()
