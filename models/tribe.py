@@ -45,4 +45,4 @@ class Tribe():
         if tribe_role:
             return tribe_role.mention
         else:
-            return ""
+            return f"<{self.tribe_string}>"

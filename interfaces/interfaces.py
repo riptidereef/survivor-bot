@@ -742,25 +742,63 @@ class TribalCouncilNumberModal(discord.ui.Modal):
     tribal_number = discord.ui.TextInput(label="Number", placeholder="Enter the number of this tribal...")
 
     async def on_submit(self, interaction: discord.Interaction):
+        guild = interaction.guild
 
         embed = discord.Embed(
             title=f"Tribal Council #{self.tribal_number.value} Setup"
         )
-        embed.add_field(name="Tribe(s) Attending", value="(None Selected)", inline=False)
+        embed.add_field(name="Tribe(s) Attending", value="(None)", inline=False)
 
-        view = TribalCouncilOptions(tribal_number=self.tribal_number.value)
+        view = TribalCouncilOptions(guild=guild, tribal_number=self.tribal_number.value)
 
         await interaction.response.send_message(embed=embed, view=view)
 
 class TribalCouncilOptions(View):
-    def __init__(self, tribal_number: str):
+    def __init__(self, guild: discord.Guild, tribal_number: str):
         super().__init__(timeout=None)
         self.tribal_number = tribal_number
+        self.selected_tribes = set()
+        self.guild = guild
+
+        tribes = queries.get_tribe(server_id=guild.id)
+
+        options = [
+            discord.SelectOption(label=t.tribe_string, value=str(t.tribe_id))
+            for t in tribes
+        ]
+
+        self.tribe_select = discord.ui.Select(
+            placeholder=f"Choose tribes to attend Tribal Council #{tribal_number}...",
+            min_values = 1,
+            max_values=len(options),
+            options=options
+        )
+        self.tribe_select.callback = self.select_callback
+        self.add_item(self.tribe_select)
 
     @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
     async def confirm_tribal_button(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_message("Confirm")
+        guild = interaction.guild
 
+        await interaction.response.defer()
+
+        tribal_category = discord.utils.get(guild.categories, name="Tribal Councils")
+        tribes = [get_first(queries.get_tribe(server_id=interaction.guild.id, tribe_id=int(id))) for id in self.selected_tribes]
+        
+        tribe_channel_names = [tribe.tribe_name.lower().strip().replace(" ", "-") for tribe in tribes]
+        
+        full_channel_name = f"tribal-council-{self.tribal_number}-{"-".join(sorted(tribe_channel_names))}"
+
+        self.tribe_select.disabled = True
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                child.disabled = True
+        await interaction.message.edit(view=self)
+
+        channel = await guild.create_text_channel(name=full_channel_name, category=tribal_category)
+        await arrange_tribal_channels(tribal_category)
+        await interaction.followup.send(f"Created new Tribal Council in {channel.mention}.")
+        
     @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
     async def cancel_tribal_button(self, interaction: discord.Interaction, button: Button):
         await interaction.message.delete()
@@ -769,3 +807,20 @@ class TribalCouncilOptions(View):
     async def edit_tribal_button(self, interaction: discord.Interaction, button: Button):
         await interaction.message.delete()
         await interaction.response.send_modal(TribalCouncilNumberModal())
+
+    async def update_embed(self, interaction: discord.Interaction):
+        embed = discord.Embed(title=f"Tribal Council #{self.tribal_number} Setup")
+
+        tribes = [get_first(queries.get_tribe(server_id=interaction.guild.id, tribe_id=int(id))) for id in self.selected_tribes]
+
+        embed.add_field(
+            name="Tribe(s) Attending",
+            value="".join(sorted(t.mention(self.guild) for t in tribes)) or "(None)",
+            inline=False
+        )
+
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def select_callback(self, interaction: discord.Interaction):
+        self.selected_tribes = set(self.tribe_select.values)
+        await self.update_embed(interaction=interaction)
