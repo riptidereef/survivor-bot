@@ -523,7 +523,9 @@ class SeasonSetupButtons(View):
 
     @discord.ui.button(label="Tribal Council", style=discord.ButtonStyle.blurple)
     async def tribal_council_callback(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_message("Tribal Council")
+        guild = interaction.guild
+
+        await interaction.response.send_modal(TribalCouncilNumberModal())
 
 class TribeSwapView(View):
     def __init__(self, guild: discord.Guild):
@@ -732,3 +734,38 @@ class VerifyTribeCreateView(View):
     @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
     async def cancel_swap_button(self, interaction: discord.Interaction, button: Button):
         await interaction.message.delete()
+
+class TribalCouncilNumberModal(discord.ui.Modal):
+    def __init__(self):
+        super().__init__(title="Tribal Council Info")
+
+    tribal_number = discord.ui.TextInput(label="Number", placeholder="Enter the number of this tribal...")
+
+    async def on_submit(self, interaction: discord.Interaction):
+
+        embed = discord.Embed(
+            title=f"Tribal Council #{self.tribal_number.value} Setup"
+        )
+        embed.add_field(name="Tribe(s) Attending", value="(None Selected)", inline=False)
+
+        view = TribalCouncilOptions(tribal_number=self.tribal_number.value)
+
+        await interaction.response.send_message(embed=embed, view=view)
+
+class TribalCouncilOptions(View):
+    def __init__(self, tribal_number: str):
+        super().__init__(timeout=None)
+        self.tribal_number = tribal_number
+
+    @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
+    async def confirm_tribal_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("Confirm")
+
+    @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
+    async def cancel_tribal_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.message.delete()
+
+    @discord.ui.button(label="✏️", style=discord.ButtonStyle.gray)
+    async def edit_tribal_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.message.delete()
+        await interaction.response.send_modal(TribalCouncilNumberModal())
