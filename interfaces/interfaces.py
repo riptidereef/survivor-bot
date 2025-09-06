@@ -473,16 +473,18 @@ class TribeSetupButtons(View):
 
         # FIXME: 11 or more users needs to be addressed
         for channel_name in sorted(channels_list):
-            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            channel = discord.utils.get(guild.text_channels, name=channel_name) or discord.utils.get(guild.text_channels, name=f"{channel_name}-🔒")
             if channel:
+                await unlock_channel(guild=guild, channel=channel)
                 await channel.edit(category=category)
             else:
                 await guild.create_text_channel(name=channel_name, category=category)
 
         closed_category = discord.utils.get(guild.categories, name="Closed")
         for channel_name in channels_to_close:
-            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            channel = discord.utils.get(guild.text_channels, name=channel_name) or discord.utils.get(guild.text_channels, name=f"{channel_name}-🔒")
             if channel:
+                await lock_channel(guild=guild, channel=channel)
                 await channel.edit(category=closed_category)
             else:
                 continue
@@ -680,6 +682,11 @@ class TribeSwapPlayersView(View):
             for player in lst:
                 await swap_player_tribe(guild=guild, player=player, new_tribe=tribe)
             
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                child.disabled = True
+        await interaction.message.edit(view=self)
+        
         await interaction.followup.send(f"Swapping players: {self.assignments}", ephemeral=True)
 
     @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
