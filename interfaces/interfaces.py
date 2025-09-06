@@ -44,13 +44,13 @@ async def get_player_embed(guild: discord.Guild, player: Player) -> discord.Embe
     if player_tribe is not None:
         embed.add_field(
             name="Tribe",
-            value=f"{player_tribe.tribe_string}",
+            value=f"{player_tribe.mention(guild=guild)}",
             inline=True
         )
     else:
         embed.add_field(
             name="Tribe",
-            value="Not assigned",
+            value="Not Assigned",
             inline=True
         )
 
@@ -195,6 +195,86 @@ class PlayerSetupButtons(View):
                 await user.add_roles(*roles_to_add)
 
             await interaction.followup.send(f"Successfully revealed player **{self.player.display_name}**.")
+
+    @discord.ui.button(label="Eliminate Player", style=discord.ButtonStyle.red)
+    async def player_elimination_callback(self, interaction: discord.Interaction, button: Button):
+        guild = interaction.guild
+        embed = await get_player_embed(guild=guild, player=self.player)
+        embed.color = discord.Color.red()
+        embed.title = f"Eliminate: {embed.title}"
+        embed.add_field(name="Elimination Type", value="(Not Selected)", inline=False)
+        view = PlayerEliminationView(player=self.player)
+        await interaction.response.send_message(embed=embed, view=view)
+
+class PlayerEliminationView(View):
+    def __init__(self, player: Player):
+        super().__init__(timeout=None)
+        self.player = player
+
+        options = [
+            discord.SelectOption(label="Jury", value="Jury"),
+            discord.SelectOption(label="Pre-Jury", value="Pre-Jury"),
+            discord.SelectOption(label="Sequester", value="Sequester")
+        ]
+
+        self.elimination_type = discord.ui.Select(
+            placeholder="Select Elimination Type...",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+        self.elimination_type.callback = self.elimination_callback
+        self.add_item(self.elimination_type)
+
+    async def update_embed(self, interaction: discord.Interaction, elimination_type: str):
+        message = interaction.message
+        embed = message.embeds[0]
+
+        for i, field in enumerate(embed.fields):
+            if field.name == "Elimination Type":
+
+                if elimination_type == "Jury":
+                    value = discord.utils.get(interaction.guild.roles, name="Jury").mention or "Jury"
+                elif elimination_type == "Pre-Jury":
+                    value = discord.utils.get(interaction.guild.roles, name="Pre-Jury").mention or "Pre-Jury"
+                else:
+                    value = discord.utils.get(interaction.guild.roles, name="Sequester").mention or "Sequester"
+
+                embed.set_field_at(i, name="Elimination Type", value=value, inline=False)
+                break
+
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def elimination_callback(self, interaction: discord.Interaction):
+        await self.update_embed(interaction, self.elimination_type.values[0])
+
+    async def eliminate_prejury(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Pre-Jury")
+
+    async def eliminate_jury(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Jury")
+
+    async def eliminate_sequester(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Sequester")
+
+    @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
+    async def confirm_elimination(self, interaction: discord.Interaction, button: Button):
+
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
+
+        elim_type = self.elimination_type.values[0]
+        if elim_type == "Jury":
+            await self.eliminate_jury(interaction=interaction)
+        elif elim_type == "Pre-Jury":
+            await self.eliminate_prejury(interaction=interaction)
+        else:
+            await self.eliminate_sequester(interaction=interaction)
+
+    @discord.ui.button(label="❌", style=discord.ButtonStyle.red)
+    async def cancel_elimination(self, interaction: discord.Interaction, button: Button):
+        await interaction.message.delete()
 
 class TribeDropdownMenuView(View):
     def __init__(self, player: Player, options: list[SelectOption]):
