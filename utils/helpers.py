@@ -6,6 +6,7 @@ import re
 import config
 from models.player import Player
 from models.tribe import Tribe
+import asyncio
 
 T = TypeVar("T")
 def get_first(iterable: Iterable[T], default: Optional[T] = None) -> Optional[T]:
@@ -175,7 +176,7 @@ async def swap_player_tribe(guild: discord.Guild, player: Player, new_tribe: Tri
         await player_role.edit(color=discord.Color(int(new_tribe.color, 16)))
 
 async def alphabetize_category(category: discord.CategoryChannel):
-    text_channels = [ch for ch in category.text_channels]
+    text_channels = list(category.text_channels)
     sorted_channels = sorted(text_channels, key=lambda c: c.name)
 
     previous_channel = None
@@ -185,6 +186,7 @@ async def alphabetize_category(category: discord.CategoryChannel):
         else:
             await channel.move(after=previous_channel)
         previous_channel = channel
+        await asyncio.sleep(0.25)
 
 def extract_number(name: str) -> int:
     match = re.search(r"(\d+)", name)

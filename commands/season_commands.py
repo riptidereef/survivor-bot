@@ -46,7 +46,10 @@ async def deleteroles(interaction: discord.Interaction):
         'Immunity',
         'Castaway',
         'Trusted Viewer',
-        'Viewer'
+        'Viewer',
+        'Jury',
+        'Pre-Jury',
+        'Sequester'
     }
     await interaction.response.defer()
     guild = interaction.guild

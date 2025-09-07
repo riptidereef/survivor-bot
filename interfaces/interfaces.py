@@ -168,6 +168,7 @@ class PlayerSetupButtons(View):
         tribe_role = discord.utils.get(guild.roles, name=player_tribe.tribe_string)
 
         user = await guild.fetch_member(self.player.get_discord_id())
+        await user.edit(roles=[])
 
         if user is None:
             return
@@ -203,13 +204,15 @@ class PlayerSetupButtons(View):
         embed.color = discord.Color.red()
         embed.title = f"Eliminate: {embed.title}"
         embed.add_field(name="Elimination Type", value="(Not Selected)", inline=False)
-        view = PlayerEliminationView(player=self.player)
+        view = PlayerEliminationView(guild=interaction.guild, player=self.player)
         await interaction.response.send_message(embed=embed, view=view)
 
 class PlayerEliminationView(View):
-    def __init__(self, player: Player):
+    def __init__(self, guild: discord.Guild, player: Player):
         super().__init__(timeout=None)
         self.player = player
+        self.guild = guild
+        self.discord_member = guild.get_member(self.player.get_discord_id())
 
         options = [
             discord.SelectOption(label="Jury", value="Jury"),
@@ -249,16 +252,57 @@ class PlayerEliminationView(View):
         await self.update_embed(interaction, self.elimination_type.values[0])
 
     async def eliminate_prejury(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Pre-Jury")
+        await self.discord_member.edit(roles=[])
+        
+        prejury_role = discord.utils.get(interaction.guild.roles, name="Pre-Jury")
+        if prejury_role:
+            await self.discord_member.add_roles(prejury_role)
+
+        await interaction.followup.send(f"{self.discord_member.mention} has been moved to {prejury_role.mention}.", ephemeral=True)
+        await self.archive_player_1_1s()
 
     async def eliminate_jury(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Jury")
+        await self.discord_member.edit(roles=[])
+        
+        jury_role = discord.utils.get(interaction.guild.roles, name="Jury")
+        if jury_role:
+            await self.discord_member.add_roles(jury_role)
+
+        await interaction.followup.send(f"{self.discord_member.mention} has been moved to {jury_role.mention}.", ephemeral=True)
+        await self.archive_player_1_1s()
 
     async def eliminate_sequester(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Sequester")
+        await self.discord_member.edit(roles=[])
+        
+        sequester_role = discord.utils.get(interaction.guild.roles, name="Sequester")
+        if sequester_role:
+            await self.discord_member.add_roles(sequester_role)
+
+        await interaction.followup.send(f"{self.discord_member.mention} has been moved to {sequester_role.mention}.", ephemeral=True)
+        await self.archive_player_1_1s()
+
+    async def archive_player_1_1s(self):
+        category = discord.utils.get(self.guild.categories, name="1-1's Archive")
+
+        season_players = queries.get_player(server_id=self.guild.id)
+
+        for player in season_players:
+            if player == self.player:
+                continue
+            else:
+                name1 = self.player.display_name.strip().replace(" ", "").lower()
+                name2 = player.display_name.strip().replace(" ", "").lower()
+                full_channel_name = "-".join(sorted([name1, name2]))
+                locked_channel_name = f"{full_channel_name}-🔒"
+                channel = discord.utils.get(self.guild.text_channels, name=full_channel_name) or discord.utils.get(self.guild.text_channels, name=locked_channel_name)
+                if channel:
+                    print(channel.name)
+                    await lock_channel(guild=self.guild, channel=channel)
+                    await channel.edit(category=category)
 
     @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
     async def confirm_elimination(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.defer()
 
         for child in self.children:
             child.disabled = True
@@ -536,7 +580,7 @@ class TribeSetupButtons(View):
                 p2 = tribe_players[j]
                 name1 = p1.display_name.strip().replace(" ", "").lower()
                 name2 = p2.display_name.strip().replace(" ", "").lower()
-                full_channel_name = f"{name1}-{name2}"
+                full_channel_name = "-".join(sorted([name1, name2]))
                 channels_list.append(full_channel_name)
 
         channels_to_close = []
