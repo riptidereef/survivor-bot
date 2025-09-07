@@ -205,14 +205,22 @@ async def arrange_tribal_channels(category: discord.CategoryChannel):
             await channel.move(after=previous_channel)
         previous_channel = channel
 
-async def lock_channel(guild: discord.Guild, channel: discord.TextChannel):
+async def lock_1_1(guild: discord.Guild, channel: discord.TextChannel, role1: discord.Role, role2: discord.Role):
     if not channel.name.endswith("-🔒"):
         new_name = f"{channel.name}-🔒"
         await channel.edit(name=new_name)
 
-async def unlock_channel(guild: discord.Guild, channel: discord.TextChannel):
+    for role in (role1, role2):
+        overwrite = channel.overwrites_for(role)
+        overwrite.send_messages = False
+        await channel.set_permissions(role, overwrite=overwrite)
+
+async def unlock_1_1(guild: discord.Guild, channel: discord.TextChannel, role1: discord.Role, role2: discord.Role):
     if channel.name.endswith("-🔒"):
         new_name = channel.name[:-2]
         await channel.edit(name=new_name)
 
-    return channel
+    for role in (role1, role2):
+        overwrite = channel.overwrites_for(role)
+        overwrite.send_messages = False
+        await channel.set_permissions(role, overwrite=overwrite)

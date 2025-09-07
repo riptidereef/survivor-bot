@@ -297,7 +297,7 @@ class PlayerEliminationView(View):
                 channel = discord.utils.get(self.guild.text_channels, name=full_channel_name) or discord.utils.get(self.guild.text_channels, name=locked_channel_name)
                 if channel:
                     print(channel.name)
-                    await lock_channel(guild=self.guild, channel=channel)
+                    await lock_1_1(guild=self.guild, channel=channel)
                     await channel.edit(category=category)
 
     @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
@@ -573,48 +573,60 @@ class TribeSetupButtons(View):
             await category.move(after=one_on_ones_category)
         
         tribe_players = queries.get_player(server_id=guild.id, tribe_id=self.tribe.tribe_id)
-        channels_list = []
         for i in range(len(tribe_players)):
             for j in range(i + 1, len(tribe_players)):
                 p1 = tribe_players[i]
                 p2 = tribe_players[j]
                 name1 = p1.display_name.strip().replace(" ", "").lower()
                 name2 = p2.display_name.strip().replace(" ", "").lower()
-                full_channel_name = "-".join(sorted([name1, name2]))
-                channels_list.append(full_channel_name)
+                channel_name = "-".join(sorted([name1, name2]))
 
-        channels_to_close = []
+                role1 = discord.utils.get(guild.roles, name=p1.display_name)
+                role2 = discord.utils.get(guild.roles, name=p2.display_name)
+
+                overwrites = {
+                    guild.default_role: discord.PermissionOverwrite(view_channel=False, send_messages=False),
+                }
+                if role1:
+                    overwrites[role1] = discord.PermissionOverwrite(
+                        view_channel=True, send_messages=True, read_message_history=True
+                    )
+                if role2:
+                    overwrites[role2] = discord.PermissionOverwrite(
+                        view_channel=True, send_messages=True, read_message_history=True
+                    )
+
+                channel = discord.utils.get(
+                    guild.text_channels, name=channel_name
+                ) or discord.utils.get(
+                    guild.text_channels, name=f"{channel_name}-🔒"
+                )
+
+                if channel:
+                    await unlock_1_1(guild=guild, channel=channel, role1=role1, role2=role2)
+                    await channel.edit(category=category, overwrites=overwrites)
+                else:
+                    await guild.create_text_channel(name=channel_name, category=category, overwrites=overwrites)
+
         season_players = queries.get_player(server_id=guild.id)
+        closed_category = discord.utils.get(guild.categories, name="Closed")
+
         for p1 in tribe_players:
             for p2 in season_players:
-                if p1 != p2:
-                    if p1.tribe_id != p2.tribe_id:
-                        name1 = p1.display_name.strip().replace(" ", "").lower()
-                        name2 = p2.display_name.strip().replace(" ", "").lower()
-                        full_channel_name = "-".join(sorted([name1, name2]))
-                        if full_channel_name not in channels_to_close:
-                            channels_to_close.append(full_channel_name)
-
-        # FIXME: 11 or more users needs to be addressed
-        for channel_name in sorted(channels_list):
-            channel = discord.utils.get(guild.text_channels, name=channel_name) or discord.utils.get(guild.text_channels, name=f"{channel_name}-🔒")
-            if channel:
-                await unlock_channel(guild=guild, channel=channel)
-                await channel.edit(category=category)
-            else:
-                await guild.create_text_channel(name=channel_name, category=category)
-
-        closed_category = discord.utils.get(guild.categories, name="Closed")
-        for channel_name in channels_to_close:
-            channel = discord.utils.get(guild.text_channels, name=channel_name) or discord.utils.get(guild.text_channels, name=f"{channel_name}-🔒")
-            if channel:
-                await lock_channel(guild=guild, channel=channel)
-                await channel.edit(category=closed_category)
-            else:
-                continue
+                if p1 != p2 and p1.tribe_id != p2.tribe_id:
+                    name1 = p1.display_name.strip().replace(" ", "").lower()
+                    name2 = p2.display_name.strip().replace(" ", "").lower()
+                    channel_name = "-".join(sorted([name1, name2]))
+                        
+                    channel = discord.utils.get(guild.text_channels, name=channel_name) or discord.utils.get(guild.text_channels, name=f"{channel_name}-🔒")
+                    
+                    if channel:
+                        role1 = discord.utils.get(guild.roles, name=p1.display_name)
+                        role2 = discord.utils.get(guild.roles, name=p2.display_name)
+                        await lock_1_1(guild=guild, channel=channel, role1=role1, role2=role2)
+                        await channel.edit(category=closed_category)
 
         await alphabetize_category(category=category)
-
         await interaction.followup.send("Done")
 
     @discord.ui.button(label="Arrange Tribe Categories", style=discord.ButtonStyle.blurple)
