@@ -1,8 +1,8 @@
 import discord
 from discord import app_commands
-from utils.helpers import *
+from helpers import *
 import re
-from interfaces.interfaces import *
+from interfaces import *
 
 async def deleteallchannels(interaction: discord.Interaction):
     guild = interaction.guild

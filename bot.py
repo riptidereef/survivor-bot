@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import logging
 import os
-from commands.season_commands import *
+from commands import *
 from dotenv import load_dotenv
 from database import connection, queries
 
@@ -29,7 +29,6 @@ async def on_ready():
 
     connection.setup_tables()
 
-    # Add all users from all servers
     user_count = 0
     for guild in bot.guilds:
         print(f"Syncing members from guild: {guild.name}")

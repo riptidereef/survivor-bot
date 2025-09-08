@@ -1,6 +1,6 @@
 from .connection import get_connection, logger
-from models.player import Player
-from models.tribe import Tribe
+from player import Player
+from tribe import Tribe
 
 def add_user(discord_id: int, username: str) -> bool:
     conn = get_connection()

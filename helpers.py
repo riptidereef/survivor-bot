@@ -4,8 +4,8 @@ from discord import app_commands
 from typing import Iterable, TypeVar, Optional
 import re
 import config
-from models.player import Player
-from models.tribe import Tribe
+from player import Player
+from tribe import Tribe
 import asyncio
 
 T = TypeVar("T")

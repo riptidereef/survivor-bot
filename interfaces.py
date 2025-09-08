@@ -1,10 +1,10 @@
 import discord
 from discord import SelectOption
 from discord.ui import View, Button, Select, Modal, TextInput
-from models.player import Player
-from models.tribe import Tribe
+from player import Player
+from tribe import Tribe
 from database import queries
-from utils.helpers import *
+from helpers import *
 
 async def get_player_embed(guild: discord.Guild, player: Player) -> discord.Embed:
     player_tribe = get_first(queries.get_tribe(server_id=guild.id, player_display_name=player.display_name))
@@ -252,7 +252,8 @@ class PlayerEliminationView(View):
         await self.update_embed(interaction, self.elimination_type.values[0])
 
     async def eliminate_prejury(self, interaction: discord.Interaction):
-        await self.discord_member.edit(roles=[])
+        player_role = discord.utils.get(self.guild.roles, name=self.player.display_name)
+        await self.discord_member.edit(roles=[player_role])
         
         prejury_role = discord.utils.get(interaction.guild.roles, name="Pre-Jury")
         if prejury_role:
@@ -262,7 +263,8 @@ class PlayerEliminationView(View):
         await self.archive_player_1_1s()
 
     async def eliminate_jury(self, interaction: discord.Interaction):
-        await self.discord_member.edit(roles=[])
+        player_role = discord.utils.get(self.guild.roles, name=self.player.display_name)
+        await self.discord_member.edit(roles=[player_role])
         
         jury_role = discord.utils.get(interaction.guild.roles, name="Jury")
         if jury_role:
@@ -272,7 +274,8 @@ class PlayerEliminationView(View):
         await self.archive_player_1_1s()
 
     async def eliminate_sequester(self, interaction: discord.Interaction):
-        await self.discord_member.edit(roles=[])
+        player_role = discord.utils.get(self.guild.roles, name=self.player.display_name)
+        await self.discord_member.edit(roles=[player_role])
         
         sequester_role = discord.utils.get(interaction.guild.roles, name="Sequester")
         if sequester_role:
@@ -296,8 +299,9 @@ class PlayerEliminationView(View):
                 locked_channel_name = f"{full_channel_name}-🔒"
                 channel = discord.utils.get(self.guild.text_channels, name=full_channel_name) or discord.utils.get(self.guild.text_channels, name=locked_channel_name)
                 if channel:
-                    print(channel.name)
-                    await lock_1_1(guild=self.guild, channel=channel)
+                    role1 = discord.utils.get(self.guild.roles, name=self.player.display_name)
+                    role2 = discord.utils.get(self.guild.roles, name=player.display_name)
+                    await lock_1_1(guild=self.guild, channel=channel, role1=role1, role2=role2)
                     await channel.edit(category=category)
 
     @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
@@ -476,21 +480,48 @@ class TribeSetupButtons(View):
             await interaction.response.send_message("Tribes category not found. Please use /setupcategories first.", ephemeral=True)
             return
         
+        await interaction.response.defer()
+        
         if self.tribe.iteration == 1:
             channel_name = f"{self.tribe.tribe_name.strip().lower()}-camp"
         else:
             channel_name = f"{self.tribe.tribe_name.strip().lower()}-{self.tribe.iteration}-camp"
 
-        channel = discord.utils.get(category.channels, name=channel_name)
+        tribe_role = discord.utils.get(guild.roles, name=self.tribe.tribe_string)
+
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            tribe_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
+        }
+
+        archive_overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            tribe_role: discord.PermissionOverwrite(view_channel=True, send_messages=False)
+        }
+
+        unarchive_overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            tribe_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
+        }
+
+        channel = discord.utils.get(guild.channels, name=channel_name) or discord.utils.get(guild.channels, name=f"{channel_name}-🔒")
         if channel is not None:
-            await channel.delete()
-            await interaction.response.send_message(
-                f"Deleted channel #{channel_name}.", ephemeral=True
-            )
+            archive_category = discord.utils.get(guild.categories, name="Archive")
+            if channel.category == archive_category:
+                new_name = channel.name[:-2]
+                await channel.edit(name=new_name, category=category, overwrites=unarchive_overwrites)
+                await interaction.followup.send(
+                    f"Unarchived tribe chat {channel.mention}.", ephemeral=True
+                )
+            else:
+                new_name = f"{channel.name}-🔒"
+                await channel.edit(name=new_name, category=archive_category, overwrites=archive_overwrites)
+                await interaction.followup.send(
+                    f"Archived tribe chat {channel.mention}.", ephemeral=True
+                )
         else:
-            print("Creating new channel.")
-            new_channel = await guild.create_text_channel(name=channel_name, category=category)
-            await interaction.response.send_message(
+            new_channel = await guild.create_text_channel(name=channel_name, category=category, overwrites=overwrites)
+            await interaction.followup.send(
                 f"Created tribe chat {new_channel.mention}.", ephemeral=True
             )
 
