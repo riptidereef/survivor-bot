@@ -541,8 +541,12 @@ class TribeSetupButtons(View):
                 f"Deleted channel {channel_name}.", ephemeral=True
             )
         else:
-            print("Creating new voice channel.")
-            new_channel = await guild.create_voice_channel(name=channel_name, category=category)
+            tribe_role = discord.utils.get(guild.roles, name=self.tribe.tribe_string)
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(connect=True, view_channel=True, speak=False),
+                tribe_role: discord.PermissionOverwrite(connect=True, view_channel=True, speak=True),
+            }
+            new_channel = await guild.create_voice_channel(name=channel_name, category=category, overwrites=overwrites)
             await interaction.response.send_message(
                 f"Created tribe voice chat {new_channel.mention}.", ephemeral=True
             )
