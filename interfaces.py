@@ -762,6 +762,10 @@ class TribeSwapView(View):
     async def confirm_swap(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
 
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
+
         from_tribes_objects = [get_first(queries.get_tribe(server_id=interaction.guild.id, tribe_id=id)) for id in self.from_tribes]
         to_tribes_objects = [get_first(queries.get_tribe(server_id=interaction.guild.id, tribe_id=id)) for id in self.to_tribes]
 
@@ -838,6 +842,10 @@ class TribeSwapPlayersView(View):
     async def confirm_swap_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
 
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
+
         await interaction.response.defer()
 
         seen = set()
@@ -878,6 +886,10 @@ class VerifyTribeCreateView(View):
     async def confirm_swap_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
         server_id = guild.id
+
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
 
         await interaction.response.defer()
         
@@ -958,6 +970,12 @@ class TribalCouncilOptions(View):
     async def confirm_tribal_button(self, interaction: discord.Interaction, button: Button):
         guild = interaction.guild
 
+        self.tribe_select.disabled = True
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                child.disabled = True
+        await interaction.message.edit(view=self)
+
         await interaction.response.defer()
 
         tribal_category = discord.utils.get(guild.categories, name="Tribal Councils")
@@ -966,12 +984,6 @@ class TribalCouncilOptions(View):
         tribe_channel_names = [tribe.tribe_name.lower().strip().replace(" ", "-") for tribe in tribes]
         
         full_channel_name = f"tribal-council-{self.tribal_number}-{"-".join(sorted(tribe_channel_names))}"
-
-        self.tribe_select.disabled = True
-        for child in self.children:
-            if isinstance(child, discord.ui.Button):
-                child.disabled = True
-        await interaction.message.edit(view=self)
 
         channel = await guild.create_text_channel(name=full_channel_name, category=tribal_category)
         await arrange_tribal_channels(tribal_category)
