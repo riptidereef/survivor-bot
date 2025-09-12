@@ -599,15 +599,8 @@ class TribeSetupButtons(View):
         guild = interaction.guild
         await interaction.response.defer()
 
-        one_on_ones_category = discord.utils.get(guild.categories, name="1-1's")
-
-        category_name = f"{self.tribe.tribe_string} 1-1's"
-        category = discord.utils.get(guild.categories, name=category_name)
-        if not category:
-            category = await guild.create_category(name=category_name)
-            await category.move(after=one_on_ones_category)
-        
         tribe_players = queries.get_player(server_id=guild.id, tribe_id=self.tribe.tribe_id)
+        one_on_ones_list = []
         for i in range(len(tribe_players)):
             for j in range(i + 1, len(tribe_players)):
                 p1 = tribe_players[i]
@@ -615,33 +608,56 @@ class TribeSetupButtons(View):
                 name1 = p1.display_name.strip().replace(" ", "").lower()
                 name2 = p2.display_name.strip().replace(" ", "").lower()
                 channel_name = "-".join(sorted([name1, name2]))
-
                 role1 = discord.utils.get(guild.roles, name=p1.display_name)
                 role2 = discord.utils.get(guild.roles, name=p2.display_name)
+                one_on_ones_list.append((channel_name, role1, role2))
 
-                overwrites = {
-                    guild.default_role: discord.PermissionOverwrite(view_channel=False, send_messages=False),
-                }
-                if role1:
-                    overwrites[role1] = discord.PermissionOverwrite(
-                        view_channel=True, send_messages=True, read_message_history=True
-                    )
-                if role2:
-                    overwrites[role2] = discord.PermissionOverwrite(
-                        view_channel=True, send_messages=True, read_message_history=True
-                    )
+        one_on_ones_list.sort(key=lambda c: c[0])
 
-                channel = discord.utils.get(
-                    guild.text_channels, name=channel_name
-                ) or discord.utils.get(
-                    guild.text_channels, name=f"{channel_name}-🔒"
+        one_on_ones_category = discord.utils.get(guild.categories, name="1-1's")
+        base_category_name = f"{self.tribe.tribe_string} 1-1's"
+
+        category_index = 1
+        category_name = base_category_name
+        category = discord.utils.get(guild.categories, name=category_name)
+        if not category:
+            category = await guild.create_category(name=category_name)
+            await category.move(after=one_on_ones_category)
+
+        last_category = category
+        for channel_name, role1, role2 in one_on_ones_list:
+
+            if len(category.text_channels) >= 50:
+                category_index += 1
+                new_category_name = f"{base_category_name} {category_index}"
+                category = discord.utils.get(guild.categories, name=new_category_name)
+                if not category:
+                    category = await guild.create_category(name=new_category_name)
+                    await category.move(after=last_category)
+
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=False, send_messages=False),
+            }
+            if role1:
+                overwrites[role1] = discord.PermissionOverwrite(
+                    view_channel=True, send_messages=True, read_message_history=True
                 )
+            if role2:
+                overwrites[role2] = discord.PermissionOverwrite(
+                    view_channel=True, send_messages=True, read_message_history=True
+                )
+                
+            channel = discord.utils.get(
+                guild.text_channels, name=channel_name
+            ) or discord.utils.get(
+                guild.text_channels, name=f"{channel_name}-🔒"
+            )
 
-                if channel:
-                    await unlock_1_1(guild=guild, channel=channel, role1=role1, role2=role2)
-                    await channel.edit(category=category, overwrites=overwrites)
-                else:
-                    await guild.create_text_channel(name=channel_name, category=category, overwrites=overwrites)
+            if channel:
+                await unlock_1_1(guild=guild, channel=channel, role1=role1, role2=role2)
+                await channel.edit(category=category, overwrites=overwrites)
+            else:
+                await guild.create_text_channel(name=channel_name, category=category, overwrites=overwrites)
 
         season_players = queries.get_player(server_id=guild.id)
         closed_category = discord.utils.get(guild.categories, name="Closed")
@@ -661,8 +677,9 @@ class TribeSetupButtons(View):
                         await lock_1_1(guild=guild, channel=channel, role1=role1, role2=role2)
                         await channel.edit(category=closed_category)
 
-        await alphabetize_category(category=category)
+        # await alphabetize_category(category=category)
         await interaction.followup.send("Done")
+
 
     @discord.ui.button(label="Arrange Tribe Categories", style=discord.ButtonStyle.blurple)
     async def setupcategories(self, interaction: discord.Interaction, button: Button):
