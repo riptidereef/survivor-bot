@@ -224,3 +224,13 @@ async def unlock_1_1(guild: discord.Guild, channel: discord.TextChannel, role1: 
         overwrite = channel.overwrites_for(role)
         overwrite.send_messages = False
         await channel.set_permissions(role, overwrite=overwrite)
+
+async def alphabetize_categories(guild: discord.Guild, categories: list[discord.CategoryChannel]):
+    
+    all_channels = []
+    for c in categories:
+        all_channels.extend(c.text_channels)
+
+    all_channels.sort(key=lambda ch: ch.name)
+
+    
