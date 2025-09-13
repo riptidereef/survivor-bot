@@ -543,7 +543,7 @@ class TribeSetupButtons(View):
         else:
             tribe_role = discord.utils.get(guild.roles, name=self.tribe.tribe_string)
             overwrites = {
-                guild.default_role: discord.PermissionOverwrite(connect=True, view_channel=True, speak=False),
+                guild.default_role: discord.PermissionOverwrite(connect=True, view_channel=False, speak=False),
                 tribe_role: discord.PermissionOverwrite(connect=True, view_channel=True, speak=True),
             }
             new_channel = await guild.create_voice_channel(name=channel_name, category=category, overwrites=overwrites)
@@ -612,10 +612,10 @@ class TribeSetupButtons(View):
                 role2 = discord.utils.get(guild.roles, name=p2.display_name)
                 one_on_ones_list.append((channel_name, role1, role2))
 
-        one_on_ones_list.sort(key=lambda c: c[0])
-
         one_on_ones_category = discord.utils.get(guild.categories, name="1-1's")
         base_category_name = f"{self.tribe.tribe_string} 1-1's"
+
+        categories_to_sort = []
 
         category_index = 1
         category_name = base_category_name
@@ -624,6 +624,7 @@ class TribeSetupButtons(View):
             category = await guild.create_category(name=category_name)
             await category.move(after=one_on_ones_category)
 
+        categories_to_sort.append(category)
         last_category = category
         for channel_name, role1, role2 in one_on_ones_list:
 
@@ -634,6 +635,8 @@ class TribeSetupButtons(View):
                 if not category:
                     category = await guild.create_category(name=new_category_name)
                     await category.move(after=last_category)
+                categories_to_sort.append(category)
+                last_category = category
 
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(view_channel=False, send_messages=False),
@@ -677,7 +680,7 @@ class TribeSetupButtons(View):
                         await lock_1_1(guild=guild, channel=channel, role1=role1, role2=role2)
                         await channel.edit(category=closed_category)
 
-        # await alphabetize_category(category=category)
+        await alphabetize_categories(guild=guild, categories=categories_to_sort)
         await interaction.followup.send("Done")
 
 

@@ -233,4 +233,21 @@ async def alphabetize_categories(guild: discord.Guild, categories: list[discord.
 
     all_channels.sort(key=lambda ch: ch.name)
 
+    buckets: list[list[discord.TextChannel]] = []
+    for i in range(0, len(all_channels), 50):
+        buckets.append(all_channels[i:i+50])
+
+    new_category_list = []
+    for category in categories:
+        new_category = await guild.create_category(name=category.name, overwrites=category.overwrites)
+        await new_category.move(after=category)
+        new_category_list.append(new_category)
+
+    for i, bucket in enumerate(buckets):
+        for pos, channel in enumerate(bucket):
+            await channel.edit(category=new_category_list[i], position=pos)
+            await asyncio.sleep(0.25)
+
+    for category in categories:
+        await category.delete()
     
