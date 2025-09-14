@@ -663,7 +663,6 @@ class TribeSetupButtons(View):
                 await guild.create_text_channel(name=channel_name, category=category, overwrites=overwrites)
 
         season_players = queries.get_player(server_id=guild.id)
-        closed_category = discord.utils.get(guild.categories, name="Closed")
 
         for p1 in tribe_players:
             for p2 in season_players:
@@ -678,7 +677,7 @@ class TribeSetupButtons(View):
                         role1 = discord.utils.get(guild.roles, name=p1.display_name)
                         role2 = discord.utils.get(guild.roles, name=p2.display_name)
                         await lock_1_1(guild=guild, channel=channel, role1=role1, role2=role2)
-                        await channel.edit(category=closed_category)
+                        await close_channel(guild=guild, channel=channel)
 
         await alphabetize_categories(guild=guild, categories=categories_to_sort)
         await interaction.followup.send("Done")

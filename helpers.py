@@ -162,12 +162,27 @@ async def swap_player_tribe(guild: discord.Guild, player: Player, new_tribe: Tri
 
     queries.edit_player(server_id=guild.id, player=player, new_tribe=new_tribe)
 
+
     tribe_role = discord.utils.get(guild.roles, name=new_tribe.tribe_string)
     player_role = discord.utils.get(guild.roles, name=player.display_name)
     player_user = await player.get_discord_user(guild)
 
+
     if player_user:
         castaway_role = discord.utils.get(player_user.roles, name="Castaway")
+
+        higher_tribes = [t for t in queries.get_tribe(server_id=guild.id) if t.order_id >= new_tribe.order_id and t.tribe_id != new_tribe.tribe_id]
+
+        roles_to_remove = []
+        for tribe in higher_tribes:
+            higher_tribe_role = discord.utils.get(player_user.roles, name=tribe.tribe_string)
+            if higher_tribe_role:
+                roles_to_remove.append(higher_tribe_role)
+
+        if roles_to_remove:
+            await player_user.remove_roles(*roles_to_remove)
+                
+
 
     if castaway_role and tribe_role and player_user:
         await player_user.add_roles(tribe_role)
@@ -186,7 +201,7 @@ async def alphabetize_category(category: discord.CategoryChannel):
         else:
             await channel.move(after=previous_channel)
         previous_channel = channel
-        await asyncio.sleep(0.25)
+        await asyncio.sleep(0.33)
 
 def extract_number(name: str) -> int:
     match = re.search(r"(\d+)", name)
@@ -244,10 +259,45 @@ async def alphabetize_categories(guild: discord.Guild, categories: list[discord.
         new_category_list.append(new_category)
 
     for i, bucket in enumerate(buckets):
-        for pos, channel in enumerate(bucket):
-            await channel.edit(category=new_category_list[i], position=pos)
-            await asyncio.sleep(0.25)
+        target_category = new_category_list[i]
+
+        for channel in bucket:
+            await channel.edit(category=target_category)
+
+            text_channels = [c for c in target_category.text_channels if c != channel]
+            last_channel = text_channels[-1] if text_channels else None
+
+            if last_channel:
+                try:
+                    await channel.move(after=last_channel)
+                except ValueError:   
+                    pass
+            
+            await asyncio.sleep(0.33)
 
     for category in categories:
         await category.delete()
     
+async def close_channel(guild: discord.Guild, channel: discord.TextChannel):
+    base_closed_name = "Closed"
+    closed_index = 1
+    last_closed_category = None
+
+    if channel.category and channel.category.name.startswith(base_closed_name):
+        return 
+
+    while True:
+        category_name = base_closed_name if closed_index == 1 else f"{base_closed_name} {closed_index}"
+        closed_category = discord.utils.get(guild.categories, name=category_name)
+
+        if not closed_category:
+            closed_category = await guild.create_category(name=category_name)
+            if last_closed_category: 
+                await closed_category.move(after=last_closed_category)
+    
+        if len(closed_category.text_channels) < 50:
+            await channel.edit(category=closed_category)
+            return
+        
+        closed_index += 1
+        last_closed_category = closed_category
