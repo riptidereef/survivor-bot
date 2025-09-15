@@ -263,17 +263,9 @@ async def alphabetize_categories(guild: discord.Guild, categories: list[discord.
 
         for channel in bucket:
             await channel.edit(category=target_category)
-
-            text_channels = [c for c in target_category.text_channels if c != channel]
-            last_channel = text_channels[-1] if text_channels else None
-
-            if last_channel:
-                try:
-                    await channel.move(after=last_channel)
-                except ValueError:   
-                    pass
-            
             await asyncio.sleep(0.33)
+
+        await alphabetize_category(target_category)
 
     for category in categories:
         await category.delete()
