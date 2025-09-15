@@ -696,6 +696,63 @@ class TribeSetupButtons(View):
         await arrange_tribe_1_1_categories(guild)
         await interaction.followup.send("Done.")
 
+    @discord.ui.button(label="🔒 Tribe Chat", style=discord.ButtonStyle.blurple)
+    async def locktribechat(self, interaction: discord.Interaction, button: Button):
+        guild = interaction.guild
+        
+        if self.tribe.iteration == 1:
+            channel_name = f"{self.tribe.tribe_name.strip().lower()}-camp"
+        else:
+            channel_name = f"{self.tribe.tribe_name.strip().lower()}-{self.tribe.iteration}-camp"
+
+        tribe_channel = discord.utils.get(guild.text_channels, name=channel_name) or discord.utils.get(guild.text_channels, name=f"{channel_name}-🔒")
+
+        if tribe_channel:
+            tribe_role = discord.utils.get(guild.roles, name=self.tribe.tribe_string)
+            if tribe_channel.name.endswith("-🔒"):
+                new_name = tribe_channel.name[:-2]
+                await tribe_channel.set_permissions(
+                    tribe_role,
+                    overwrite=discord.PermissionOverwrite(read_messages=True, send_messages=True)
+                )
+            else:
+                new_name = f"{tribe_channel.name}-🔒"
+                await tribe_channel.set_permissions(
+                    tribe_role,
+                    overwrite=discord.PermissionOverwrite(read_messages=True, send_messages=False)
+                )
+
+            await tribe_channel.edit(name=new_name)
+
+    @discord.ui.button(label="🔒 Tribe VC", style=discord.ButtonStyle.blurple)
+    async def locktribevc(self, interaction: discord.Interaction, button: Button):
+        guild = interaction.guild
+
+        channel_name = f"{self.tribe.tribe_string} VC"
+        tribe_channel = discord.utils.get(guild.voice_channels, name=channel_name) or discord.utils.get(guild.voice_channels, name=f"{channel_name} 🔒")
+
+        if tribe_channel:
+            tribe_role = discord.utils.get(guild.roles, name=self.tribe.tribe_string)
+
+            if tribe_channel.name.endswith("🔒"):
+                new_name = tribe_channel.name[:-2]
+                await tribe_channel.set_permissions(
+                    tribe_role,
+                    overwrite=discord.PermissionOverwrite(view_channel=True, connect=True, speak=True)
+                )
+            else:
+                new_name = f"{tribe_channel.name} 🔒"
+                await tribe_channel.set_permissions(
+                    tribe_role,
+                    overwrite=discord.PermissionOverwrite(view_channel=True, connect=False, speak=False)
+                )
+
+            await tribe_channel.edit(name=new_name)
+
+    @discord.ui.button(label="🔒 1-1's", style=discord.ButtonStyle.blurple)
+    async def lock1_1s(self, interaction: discord.Interaction, button: Button):
+        pass
+
 class SeasonSetupButtons(View):
     def __init__(self):
         super().__init__(timeout=None)

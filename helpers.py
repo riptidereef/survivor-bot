@@ -253,22 +253,21 @@ async def alphabetize_categories(guild: discord.Guild, categories: list[discord.
         buckets.append(all_channels[i:i+50])
 
     new_category_list = []
-    for category in categories:
+    for i, category in enumerate(categories):
         new_category = await guild.create_category(name=category.name, overwrites=category.overwrites)
         await new_category.move(after=category)
         new_category_list.append(new_category)
 
-    for i, bucket in enumerate(buckets):
-        target_category = new_category_list[i]
+        if i < len(buckets):
+            for channel in buckets[i]:
+                await channel.edit(category=new_category)
+                await asyncio.sleep(0.33)
 
-        for channel in bucket:
-            await channel.edit(category=target_category)
-            await asyncio.sleep(0.33)
-
-        await alphabetize_category(target_category)
-
-    for category in categories:
         await category.delete()
+
+    for category in new_category_list:
+        await alphabetize_category(category)
+    
     
 async def close_channel(guild: discord.Guild, channel: discord.TextChannel):
     base_closed_name = "Closed"
