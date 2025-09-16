@@ -724,6 +724,8 @@ class TribeSetupButtons(View):
 
             await tribe_channel.edit(name=new_name)
 
+        await interaction.response.send_message("Done.", ephemeral=True)
+
     @discord.ui.button(label="🔒 Tribe VC", style=discord.ButtonStyle.blurple)
     async def locktribevc(self, interaction: discord.Interaction, button: Button):
         guild = interaction.guild
@@ -749,9 +751,39 @@ class TribeSetupButtons(View):
 
             await tribe_channel.edit(name=new_name)
 
+        await interaction.response.send_message("Done.", ephemeral=True)
+
     @discord.ui.button(label="🔒 1-1's", style=discord.ButtonStyle.blurple)
     async def lock1_1s(self, interaction: discord.Interaction, button: Button):
-        pass
+        guild = interaction.guild
+
+        await interaction.response.defer()
+
+        tribe_players = queries.get_player(server_id=guild.id, tribe_id=self.tribe.tribe_id)
+        one_on_ones_list = []
+        for i in range(len(tribe_players)):
+            for j in range(i + 1, len(tribe_players)):
+                p1 = tribe_players[i]
+                p2 = tribe_players[j]
+                name1 = p1.display_name.strip().replace(" ", "").lower()
+                name2 = p2.display_name.strip().replace(" ", "").lower()
+                channel_name = "-".join(sorted([name1, name2]))
+                role1 = discord.utils.get(guild.roles, name=p1.display_name)
+                role2 = discord.utils.get(guild.roles, name=p2.display_name)
+                one_on_ones_list.append((channel_name, role1, role2))
+
+        for channel_name, role1, role2 in one_on_ones_list:
+            channel = discord.utils.get(guild.text_channels, name=channel_name) or discord.utils.get(guild.text_channels, name=f"{channel_name}-🔒")
+            if channel:
+                if channel.name.endswith("-🔒"):
+                    await unlock_1_1(guild=guild, channel=channel, role1=role1, role2=role2)
+                else:
+                    await lock_1_1(guild=guild, channel=channel, role1=role1, role2=role2)
+        
+        await interaction.followup.send("Done.", ephemeral=True)
+
+
+
 
 class SeasonSetupButtons(View):
     def __init__(self):
