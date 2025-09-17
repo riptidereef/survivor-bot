@@ -253,7 +253,7 @@ class PlayerEliminationView(View):
 
     async def eliminate_prejury(self, interaction: discord.Interaction):
         player_role = discord.utils.get(self.guild.roles, name=self.player.display_name)
-        await self.discord_member.edit(roles=[player_role])
+        await self.discord_member.edit(roles=[])
         
         prejury_role = discord.utils.get(interaction.guild.roles, name="Pre-Jury")
         if prejury_role:
@@ -264,7 +264,7 @@ class PlayerEliminationView(View):
 
     async def eliminate_jury(self, interaction: discord.Interaction):
         player_role = discord.utils.get(self.guild.roles, name=self.player.display_name)
-        await self.discord_member.edit(roles=[player_role])
+        await self.discord_member.edit(roles=[])
         
         jury_role = discord.utils.get(interaction.guild.roles, name="Jury")
         if jury_role:
@@ -275,7 +275,7 @@ class PlayerEliminationView(View):
 
     async def eliminate_sequester(self, interaction: discord.Interaction):
         player_role = discord.utils.get(self.guild.roles, name=self.player.display_name)
-        await self.discord_member.edit(roles=[player_role])
+        await self.discord_member.edit(roles=[])
         
         sequester_role = discord.utils.get(interaction.guild.roles, name="Sequester")
         if sequester_role:
@@ -285,7 +285,12 @@ class PlayerEliminationView(View):
         await self.archive_player_1_1s()
 
     async def archive_player_1_1s(self):
-        category = discord.utils.get(self.guild.categories, name="1-1's Archive")
+        base_category_name = "1-1's Archive"
+        one_on_one_archive_index = 1
+        category = discord.utils.get(self.guild.categories, name=base_category_name)
+
+        if not category:
+            return
 
         season_players = queries.get_player(server_id=self.guild.id)
 
@@ -298,10 +303,23 @@ class PlayerEliminationView(View):
                 full_channel_name = "-".join(sorted([name1, name2]))
                 locked_channel_name = f"{full_channel_name}-🔒"
                 channel = discord.utils.get(self.guild.text_channels, name=full_channel_name) or discord.utils.get(self.guild.text_channels, name=locked_channel_name)
-                if channel:
+                if channel and not channel.category.name.startswith("1-1's Archive"):
                     role1 = discord.utils.get(self.guild.roles, name=self.player.display_name)
                     role2 = discord.utils.get(self.guild.roles, name=player.display_name)
                     await lock_1_1(guild=self.guild, channel=channel, role1=role1, role2=role2)
+
+                    while len(category.text_channels) >= 50:
+                        one_on_one_archive_index += 1
+                        prev_category = category
+                        new_category_name = f"{base_category_name} {one_on_one_archive_index}"
+                        category = discord.utils.get(self.guild.categories, name=new_category_name)
+
+                        if category:
+                            continue
+
+                        category = await self.guild.create_category(name=new_category_name)
+                        await category.move(after=prev_category)
+
                     await channel.edit(category=category)
 
     @discord.ui.button(label="✅", style=discord.ButtonStyle.green)
@@ -781,8 +799,6 @@ class TribeSetupButtons(View):
                     await lock_1_1(guild=guild, channel=channel, role1=role1, role2=role2)
         
         await interaction.followup.send("Done.", ephemeral=True)
-
-
 
 
 class SeasonSetupButtons(View):
